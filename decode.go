@@ -46,6 +46,7 @@ func (d *Decoder) unmarshal(pval *plistValue, v reflect.Value) error {
 		v.Set(reflect.ValueOf(val))
 		return nil
 	}
+
 	switch pval.kind {
 	case String:
 		return d.unmarshalString(pval, v)
