@@ -2,6 +2,7 @@ package plist
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io"
 	"log"
 )
@@ -42,6 +43,9 @@ func (e *xmlEncoder) generateDocument(pval *plistValue) error {
 	if err := e.EncodeToken(plistStartElement); err != nil {
 		return err
 	}
+	if err := e.Flush(); err != nil {
+		return err
+	}
 	// do stuff here
 	if err := e.writePlistValue(pval); err != nil {
 		return err
@@ -55,12 +59,15 @@ func (e *xmlEncoder) generateDocument(pval *plistValue) error {
 	}
 	return nil
 }
+
 func (e *xmlEncoder) writePlistValue(pval *plistValue) error {
 	var key string
 	encodedValue := pval.value
 	switch pval.kind {
 	case String:
 		key = "string"
+	case Boolean:
+		return e.writeBoolValue(pval)
 	default:
 		panic(pval.kind)
 
@@ -68,7 +75,19 @@ func (e *xmlEncoder) writePlistValue(pval *plistValue) error {
 	if key == "" {
 		panic("nil key")
 	}
-	err := e.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}})
-	e.Flush()
-	return err
+	if err := e.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *xmlEncoder) writeBoolValue(pval *plistValue) error {
+	// EncodeElement results in <true></true> instead of <true/>
+	// use writer to write self closing tags
+	b := pval.value.(bool)
+	_, err := e.writer.Write([]byte(fmt.Sprintf("<%t/>", b)))
+	if err != nil {
+		return err
+	}
+	return nil
 }
