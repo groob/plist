@@ -14,4 +14,18 @@ func TestGenDoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	err = newXMLEncoder(os.Stdout).generateDocument(&plistValue{Integer, signedInt{4, false}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = newXMLEncoder(os.Stdout).generateDocument(&plistValue{Dictionary, &dictionary{
+		m: map[string]*plistValue{
+			"foo": &plistValue{Integer, signedInt{uint64(1), false}},
+			"bar": &plistValue{String, "foobar"},
+			"baz": &plistValue{Boolean, true},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
 }

@@ -61,24 +61,51 @@ func (e *xmlEncoder) generateDocument(pval *plistValue) error {
 }
 
 func (e *xmlEncoder) writePlistValue(pval *plistValue) error {
-	var key string
-	encodedValue := pval.value
 	switch pval.kind {
 	case String:
-		key = "string"
+		return e.writeStringValue(pval)
 	case Boolean:
 		return e.writeBoolValue(pval)
+	case Integer:
+		return e.writeIntegerValue(pval)
+	case Dictionary:
+		return e.writeDictionaryValue(pval)
 	default:
 		panic(pval.kind)
-
-	}
-	if key == "" {
-		panic("nil key")
-	}
-	if err := e.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}}); err != nil {
-		return err
 	}
 	return nil
+}
+
+func (e *xmlEncoder) writeDictionaryValue(pval *plistValue) error {
+	encodedValue := pval.value
+	dictStartElement := xml.StartElement{
+		Name: xml.Name{
+			Space: "",
+			Local: "dict",
+		}}
+	if err := e.EncodeToken(dictStartElement); err != nil {
+		return err
+	}
+	if err := e.Flush(); err != nil {
+		return err
+	}
+	dict := encodedValue.(*dictionary)
+	dict.populateArrays()
+	for i, k := range dict.keys {
+		if err := e.EncodeElement(k, xml.StartElement{Name: xml.Name{Local: "key"}}); err != nil {
+			return err
+		}
+		if err := e.writePlistValue(dict.values[i]); err != nil {
+			return err
+		}
+	}
+	if err := e.EncodeToken(dictStartElement.End()); err != nil {
+		return err
+	}
+	return e.Flush()
+}
+func (e *xmlEncoder) writeStringValue(pval *plistValue) error {
+	return e.EncodeElement(pval.value, xml.StartElement{Name: xml.Name{Local: "string"}})
 }
 
 func (e *xmlEncoder) writeBoolValue(pval *plistValue) error {
@@ -90,4 +117,14 @@ func (e *xmlEncoder) writeBoolValue(pval *plistValue) error {
 		return err
 	}
 	return nil
+}
+
+func (e *xmlEncoder) writeIntegerValue(pval *plistValue) error {
+	encodedValue := pval.value
+	if pval.value.(signedInt).signed {
+		encodedValue = int64(pval.value.(signedInt).value)
+	} else {
+		encodedValue = pval.value.(signedInt).value
+	}
+	return e.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: "integer"}})
 }
