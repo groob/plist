@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
+	"reflect"
 	"time"
 )
 
@@ -22,11 +22,15 @@ func newXMLEncoder(w io.Writer) *xmlEncoder {
 func (e *xmlEncoder) generateDocument(pval *plistValue) error {
 	_, err := e.writer.Write([]byte(xml.Header))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	_, err = e.writer.Write([]byte(xmlDOCTYPE))
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+	_, err = e.writer.Write([]byte("\n"))
+	if err != nil {
+		return err
 	}
 	plistStartElement := xml.StartElement{
 		Name: xml.Name{
@@ -54,8 +58,11 @@ func (e *xmlEncoder) generateDocument(pval *plistValue) error {
 	if err := e.EncodeToken(plistStartElement.End()); err != nil {
 		return err
 	}
-
 	if err := e.Flush(); err != nil {
+		return err
+	}
+	_, err = e.writer.Write([]byte("\n"))
+	if err != nil {
 		return err
 	}
 	return nil
@@ -74,9 +81,8 @@ func (e *xmlEncoder) writePlistValue(pval *plistValue) error {
 	case Date:
 		return e.writeDateValue(pval)
 	default:
-		panic(pval.kind)
+		return &UnsupportedTypeError{reflect.ValueOf(pval).Type()}
 	}
-	return nil
 }
 
 func (e *xmlEncoder) writeDictionaryValue(pval *plistValue) error {
@@ -112,14 +118,8 @@ func (e *xmlEncoder) writeStringValue(pval *plistValue) error {
 }
 
 func (e *xmlEncoder) writeBoolValue(pval *plistValue) error {
-	// EncodeElement results in <true></true> instead of <true/>
-	// use writer to write self closing tags
 	b := pval.value.(bool)
-	_, err := e.writer.Write([]byte(fmt.Sprintf("<%t/>", b)))
-	if err != nil {
-		return err
-	}
-	return nil
+	return e.EncodeElement("", xml.StartElement{Name: xml.Name{Local: fmt.Sprintf("%t", b)}})
 }
 
 func (e *xmlEncoder) writeIntegerValue(pval *plistValue) error {

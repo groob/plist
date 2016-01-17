@@ -40,15 +40,18 @@ func ExampleEncoder_Encode() {
 	}
 	fmt.Println(buf.String())
 	// Output: <?xml version="1.0" encoding="UTF-8"?>
-	// <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleInfoDictionaryVersion</key><string>6.0</string><key>band-size</key><integer>8388608</integer><key>bundle-backingstore-version</key><integer>1</integer><key>diskimage-bundle-type</key><string>com.apple.diskimage.sparsebundle</string><key>size</key><integer>4398046511104</integer></dict></plist>
+	// <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+	// <plist version="1.0"><dict><key>CFBundleInfoDictionaryVersion</key><string>6.0</string><key>band-size</key><integer>8388608</integer><key>bundle-backingstore-version</key><integer>1</integer><key>diskimage-bundle-type</key><string>com.apple.diskimage.sparsebundle</string><key>size</key><integer>4398046511104</integer></dict></plist>
 
 }
 
 func TestEncodeDateStruct(t *testing.T) {
 	var date struct {
 		TestDate time.Time
+		B        bool
 	}
 	date.TestDate = time.Now()
+	date.B = true
 	if err := NewEncoder(os.Stdout).Encode(date); err != nil {
 		t.Fatal(err)
 	}

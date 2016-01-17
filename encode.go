@@ -2,7 +2,6 @@ package plist
 
 import (
 	"io"
-	"log"
 	"reflect"
 	"time"
 )
@@ -10,11 +9,13 @@ import (
 // Encoder ...
 type Encoder struct {
 	w io.Writer
+
+	indent string
 }
 
 // NewEncoder returns a new encoder that writes to w.
 func NewEncoder(w io.Writer) *Encoder {
-	return &Encoder{w}
+	return &Encoder{w: w}
 }
 
 // Encode ...
@@ -24,10 +25,14 @@ func (e *Encoder) Encode(v interface{}) error {
 		return err
 	}
 
-	if err := newXMLEncoder(e.w).generateDocument(pval); err != nil {
-		log.Fatal(err)
-	}
-	return nil
+	enc := newXMLEncoder(e.w)
+	enc.Indent("", e.indent)
+	return enc.generateDocument(pval)
+}
+
+// Indent ...
+func (e *Encoder) Indent(indent string) {
+	e.indent = indent
 }
 
 func (e *Encoder) marshal(v reflect.Value) (*plistValue, error) {
