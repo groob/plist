@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"bytes"
 	"io"
 	"reflect"
 	"time"
@@ -11,6 +12,26 @@ type Encoder struct {
 	w io.Writer
 
 	indent string
+}
+
+func Marshal(v interface{}) ([]byte, error) {
+	var buf []byte
+	w := bytes.NewBuffer(buf)
+	if err := NewEncoder(w).Encode(v); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func MarshalIndent(v interface{}, indent string) ([]byte, error) {
+	var buf []byte
+	w := bytes.NewBuffer(buf)
+	enc := NewEncoder(w)
+	enc.Indent(indent)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
 
 // NewEncoder returns a new encoder that writes to w.
