@@ -1,7 +1,6 @@
 package plist
 
 import (
-	"errors"
 	"io"
 	"log"
 	"reflect"
@@ -42,8 +41,7 @@ func (e *Encoder) marshal(v reflect.Value) (*plistValue, error) {
 		if date, ok := v.Interface().(time.Time); ok {
 			return &plistValue{Date, date}, nil
 		}
-		// TODO
-		return nil, errors.New("time marshalling failed")
+		return nil, &UnsupportedValueError{v, v.String()}
 	}
 
 	switch v.Kind() {
@@ -64,7 +62,7 @@ func (e *Encoder) marshal(v reflect.Value) (*plistValue, error) {
 	case reflect.Struct:
 		return e.marshalStruct(v)
 	default:
-		panic("not implemented")
+		return nil, &UnsupportedTypeError{v.Type()}
 	}
 }
 
@@ -110,8 +108,7 @@ func (e *Encoder) marshalArray(v reflect.Value) (*plistValue, error) {
 
 func (e *Encoder) marshalMap(v reflect.Value) (*plistValue, error) {
 	if v.Type().Key().Kind() != reflect.String {
-		//TODO return marshalerr
-		panic(v.Type())
+		return nil, &UnsupportedTypeError{v.Type()}
 	}
 
 	l := v.Len()
@@ -128,4 +125,23 @@ func (e *Encoder) marshalMap(v reflect.Value) (*plistValue, error) {
 		}
 	}
 	return &plistValue{Dictionary, dict}, nil
+}
+
+// An UnsupportedTypeError is returned by Marshal when attempting
+// to encode an unsupported value type.
+type UnsupportedTypeError struct {
+	Type reflect.Type
+}
+
+func (e *UnsupportedTypeError) Error() string {
+	return "plist: unsupported type: " + e.Type.String()
+}
+
+type UnsupportedValueError struct {
+	Value reflect.Value
+	Str   string
+}
+
+func (e *UnsupportedValueError) Error() string {
+	return "plist: unsupported value: " + e.Str
 }
