@@ -3,6 +3,7 @@ package plist
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestGenDoc(t *testing.T) {
@@ -15,6 +16,10 @@ func TestGenDoc(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = newXMLEncoder(os.Stdout).generateDocument(&plistValue{Integer, signedInt{4, false}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = newXMLEncoder(os.Stdout).generateDocument(&plistValue{Date, time.Now()})
 	if err != nil {
 		t.Fatal(err)
 	}

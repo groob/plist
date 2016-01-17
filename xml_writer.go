@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 )
 
 const xmlDOCTYPE = `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">`
@@ -70,6 +71,8 @@ func (e *xmlEncoder) writePlistValue(pval *plistValue) error {
 		return e.writeIntegerValue(pval)
 	case Dictionary:
 		return e.writeDictionaryValue(pval)
+	case Date:
+		return e.writeDateValue(pval)
 	default:
 		panic(pval.kind)
 	}
@@ -127,4 +130,9 @@ func (e *xmlEncoder) writeIntegerValue(pval *plistValue) error {
 		encodedValue = pval.value.(signedInt).value
 	}
 	return e.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: "integer"}})
+}
+
+func (e *xmlEncoder) writeDateValue(pval *plistValue) error {
+	encodedValue := pval.value.(time.Time).In(time.UTC).Format(time.RFC3339)
+	return e.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: "date"}})
 }

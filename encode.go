@@ -53,7 +53,6 @@ func (e *Encoder) marshal(v reflect.Value) (*plistValue, error) {
 		return e.marshalMap(v)
 	case reflect.Struct:
 		return e.marshalStruct(v)
-		panic("struct")
 	default:
 		fmt.Println(v.Kind())
 		panic("not implemented")
