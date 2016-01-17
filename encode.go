@@ -1,10 +1,11 @@
 package plist
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"log"
 	"reflect"
+	"time"
 )
 
 // Encoder ...
@@ -36,6 +37,15 @@ func (e *Encoder) marshal(v reflect.Value) (*plistValue, error) {
 		v = v.Elem()
 	}
 
+	// check for time type
+	if v.Type() == reflect.TypeOf((*time.Time)(nil)).Elem() {
+		if date, ok := v.Interface().(time.Time); ok {
+			return &plistValue{Date, date}, nil
+		}
+		// TODO
+		return nil, errors.New("time marshalling failed")
+	}
+
 	switch v.Kind() {
 	case reflect.String:
 		return &plistValue{String, v.String()}, nil
@@ -54,7 +64,6 @@ func (e *Encoder) marshal(v reflect.Value) (*plistValue, error) {
 	case reflect.Struct:
 		return e.marshalStruct(v)
 	default:
-		fmt.Println(v.Kind())
 		panic("not implemented")
 	}
 }
