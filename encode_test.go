@@ -49,6 +49,27 @@ var dataRef = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><data>PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxLjAiPjxzdHJpbmc+Zm9vPC9zdHJpbmc+PC9wbGlzdD4=</data></plist>`
 
+var dictRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>bool</key><true></true><key>foo</key><string>bar</string></dict></plist>`
+
+var indentRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+   <dict>
+      <key>CFBundleInfoDictionaryVersion</key>
+      <string>6.0</string>
+      <key>band-size</key>
+      <integer>8388608</integer>
+      <key>bundle-backingstore-version</key>
+      <integer>1</integer>
+      <key>diskimage-bundle-type</key>
+      <string>com.apple.diskimage.sparsebundle</string>
+      <key>size</key>
+      <integer>4398046511104</integer>
+   </dict>
+</plist>`
+
 var encodeTests = []struct {
 	in  interface{}
 	out string
@@ -57,6 +78,7 @@ var encodeTests = []struct {
 	{"UTF-8 ☼", utf8Ref},
 	{0, zeroRef},
 	{1, oneRef},
+	{uint64(1), oneRef},
 	{-1, minOneRef},
 	{1.2, realRef},
 	{false, falseRef},
@@ -64,6 +86,15 @@ var encodeTests = []struct {
 	{[]interface{}{"a", "b", "c", 4, true}, arrRef},
 	{time.Date(1900, 01, 01, 12, 00, 00, 0, time.UTC), time1900Ref},
 	{[]byte(fooRef), dataRef},
+	{map[string]interface{}{
+		"foo":  "bar",
+		"bool": true},
+		dictRef},
+	{struct {
+		Foo  string `plist:"foo"`
+		Bool bool   `plist:"bool"`
+	}{"bar", true},
+		dictRef},
 }
 
 func TestEncodeValues(t *testing.T) {
@@ -77,5 +108,29 @@ func TestEncodeValues(t *testing.T) {
 		if out != tt.out {
 			t.Errorf("Marshal(%v) = \n%v, \nwant\n %v", tt.in, out, tt.out)
 		}
+	}
+}
+
+func TestIndent(t *testing.T) {
+	sparseBundleHeader := struct {
+		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
+		BandSize              uint64 `plist:"band-size"`
+		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
+		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
+		Size                  uint64 `plist:"size"`
+	}{
+		InfoDictionaryVersion: "6.0",
+		BandSize:              8388608,
+		Size:                  4 * 1048576 * 1024 * 1024,
+		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
+		BackingStoreVersion:   1,
+	}
+	b, err := MarshalIndent(sparseBundleHeader, "   ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(b)
+	if out != indentRef {
+		t.Errorf("MarshalIndent(%v) = \n%v, \nwant\n %v", sparseBundleHeader, out, indentRef)
 	}
 }

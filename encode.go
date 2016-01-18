@@ -23,14 +23,13 @@ func Marshal(v interface{}) ([]byte, error) {
 }
 
 func MarshalIndent(v interface{}, indent string) ([]byte, error) {
-	var data []byte
-	w := bytes.NewBuffer(data)
-	enc := NewEncoder(w)
+	var buf bytes.Buffer
+	enc := NewEncoder(&buf)
 	enc.Indent(indent)
 	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
-	return data, nil
+	return buf.Bytes(), nil
 }
 
 // NewEncoder returns a new encoder that writes to w.
