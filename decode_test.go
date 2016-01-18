@@ -7,6 +7,46 @@ import (
 	"time"
 )
 
+var decodeTests = []struct {
+	out interface{}
+	in  string
+}{
+	{"foo", fooRef},
+	{"UTF-8 ☼", utf8Ref},
+	// {0, zeroRef},
+	// {1, oneRef},
+	{uint64(1), oneRef},
+	// {-1, minOneRef},
+	{1.2, realRef},
+	{false, falseRef},
+	{true, trueRef},
+	// {[]interface{}{"a", "b", "c", 4, true}, arrRef},
+	{time.Date(1900, 01, 01, 12, 00, 00, 0, time.UTC), time1900Ref},
+	// {[]byte(fooRef), dataRef},
+	// {map[string]interface{}{
+	// 	"foo":  "bar",
+	// 	"bool": true},
+	// 	dictRef},
+	// {struct {
+	// 	Foo  string `plist:"foo"`
+	// 	Bool bool   `plist:"bool"`
+	// }{"bar", true},
+	// 	dictRef},
+}
+
+func TestDecode(t *testing.T) {
+	for _, tt := range decodeTests {
+		var out interface{}
+		if err := Unmarshal([]byte(tt.in), &out); err != nil {
+			t.Error(err)
+			continue
+		}
+		if out != tt.out {
+			t.Errorf("Unmarshal(%v) = \n%v, want %v", tt.in, out, tt.out)
+		}
+	}
+}
+
 func TestDecodeReal(t *testing.T) {
 	buf := bytes.NewReader([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
