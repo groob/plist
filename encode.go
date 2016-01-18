@@ -15,23 +15,22 @@ type Encoder struct {
 }
 
 func Marshal(v interface{}) ([]byte, error) {
-	var buf []byte
-	w := bytes.NewBuffer(buf)
-	if err := NewEncoder(w).Encode(v); err != nil {
+	var buf bytes.Buffer
+	if err := NewEncoder(&buf).Encode(v); err != nil {
 		return nil, err
 	}
-	return buf, nil
+	return buf.Bytes(), nil
 }
 
 func MarshalIndent(v interface{}, indent string) ([]byte, error) {
-	var buf []byte
-	w := bytes.NewBuffer(buf)
+	var data []byte
+	w := bytes.NewBuffer(data)
 	enc := NewEncoder(w)
 	enc.Indent(indent)
 	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
-	return buf, nil
+	return data, nil
 }
 
 // NewEncoder returns a new encoder that writes to w.

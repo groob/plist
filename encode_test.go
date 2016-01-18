@@ -1,58 +1,63 @@
 package plist
 
-import (
-	"bytes"
-	"fmt"
-	"os"
-	"testing"
-	"time"
-)
+import "testing"
 
-func TestEncode(t *testing.T) {
-	input := "test"
-	err := NewEncoder(os.Stdout).Encode(input)
-	if err != nil {
-		t.Fatal(err)
-	}
+var fooRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><string>foo</string></plist>`
+
+var barRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><string>bar</string></plist>`
+
+var zeroRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><integer>0</integer></plist>`
+
+var oneRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><integer>1</integer></plist>`
+
+var realRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><real>1.2</real></plist>`
+
+var falseRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><false></false></plist>`
+
+var trueRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><true></true></plist>`
+
+var arrRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><array><string>a</string><string>b</string><string>c</string><integer>4</integer><true></true></array></plist>`
+
+var encodeTests = []struct {
+	in  interface{}
+	out string
+}{
+	{"foo", fooRef},
+	{"bar", barRef},
+	{0, zeroRef},
+	{1, oneRef},
+	{1.2, realRef},
+	{false, falseRef},
+	{true, trueRef},
+	{[]interface{}{"a", "b", "c", 4, true}, arrRef},
 }
 
-func ExampleEncoder_Encode() {
-	type sparseBundleHeader struct {
-		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
-		BandSize              uint64 `plist:"band-size"`
-		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
-		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
-		Size                  uint64 `plist:"size"`
-	}
-	data := &sparseBundleHeader{
-		InfoDictionaryVersion: "6.0",
-		BandSize:              8388608,
-		Size:                  4 * 1048576 * 1024 * 1024,
-		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
-		BackingStoreVersion:   1,
-	}
-
-	buf := &bytes.Buffer{}
-	encoder := NewEncoder(buf)
-	err := encoder.Encode(data)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(buf.String())
-	// Output: <?xml version="1.0" encoding="UTF-8"?>
-	// <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-	// <plist version="1.0"><dict><key>CFBundleInfoDictionaryVersion</key><string>6.0</string><key>band-size</key><integer>8388608</integer><key>bundle-backingstore-version</key><integer>1</integer><key>diskimage-bundle-type</key><string>com.apple.diskimage.sparsebundle</string><key>size</key><integer>4398046511104</integer></dict></plist>
-
-}
-
-func TestEncodeDateStruct(t *testing.T) {
-	var date struct {
-		TestDate time.Time
-		B        bool
-	}
-	date.TestDate = time.Now()
-	date.B = true
-	if err := NewEncoder(os.Stdout).Encode(date); err != nil {
-		t.Fatal(err)
+func TestEncodeValues(t *testing.T) {
+	for _, tt := range encodeTests {
+		b, err := Marshal(tt.in)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		out := string(b)
+		if out != tt.out {
+			t.Errorf("Marshal(%v) = \n%v, \nwant\n %v", tt.in, out, tt.out)
+		}
 	}
 }
