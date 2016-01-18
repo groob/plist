@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -65,9 +66,16 @@ func (e *xmlEncoder) writePlistValue(pval *plistValue) error {
 		return e.writeArrayValue(pval)
 	case Real:
 		return e.writeRealValue(pval)
+	case Data:
+		return e.writeDataValue(pval)
 	default:
 		return &UnsupportedTypeError{reflect.ValueOf(pval.value).Type()}
 	}
+}
+
+func (e *xmlEncoder) writeDataValue(pval *plistValue) error {
+	encodedValue := base64.StdEncoding.EncodeToString(pval.value.([]byte))
+	return e.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: "data"}})
 }
 
 func (e *xmlEncoder) writeRealValue(pval *plistValue) error {
