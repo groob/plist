@@ -1,7 +1,6 @@
 package plist
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -30,7 +29,7 @@ var decodeTests = []struct {
 		dictRef},
 }
 
-func TestDecode(t *testing.T) {
+func TestDecodeEmptyInterface(t *testing.T) {
 	for _, tt := range decodeTests {
 		var out interface{}
 		if err := Unmarshal([]byte(tt.in), &out); err != nil {
@@ -39,13 +38,13 @@ func TestDecode(t *testing.T) {
 		}
 		eq := reflect.DeepEqual(out, tt.out)
 		if !eq {
-			fmt.Println(reflect.TypeOf(out))
 			t.Errorf("Unmarshal(%v) = \n%v, want %v", tt.in, out, tt.out)
 		}
 	}
 }
 
-func TestDecodeStructDict(t *testing.T) {
+func TestDecodeDict(t *testing.T) {
+	// Test struct
 	expected := struct {
 		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
 		BandSize              uint64 `plist:"band-size"`
@@ -73,6 +72,73 @@ func TestDecodeStructDict(t *testing.T) {
 	}
 	if sparseBundleHeader != expected {
 		t.Error("Expected", expected, "got", sparseBundleHeader)
+	}
+
+	// Test Map
+	var mapHeader = map[string]interface{}{}
+	// Output map[CFBundleInfoDictionaryVersion:6.0 band-size:8388608 bundle-backingstore-version:1 diskimage-bundle-type:com.apple.diskimage.sparsebundle size:4398046511104]
+	if err := Unmarshal([]byte(indentRef), &mapHeader); err != nil {
+		t.Fatal(err)
+	}
+	if mapHeader["CFBundleInfoDictionaryVersion"] != "6.0" {
+		t.Fatal("Expected", "6.0", "got", mapHeader["CFBundleInfoDictionaryVersion"])
+	}
+}
+func TestDecodeArray(t *testing.T) {
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><array><string>foo</string><string>bar</string></array></plist>`
+	var data []string
+	expected := []string{"foo", "bar"}
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if eq := reflect.DeepEqual(data, expected); !eq {
+		t.Error("Expected", expected, "got", data)
+	}
+}
+
+func TestDecodeBoolean(t *testing.T) {
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><true/></plist>`
+	var data bool
+	expected := true
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data != expected {
+		t.Error("Expected", expected, "got", data)
+	}
+}
+
+func TestDecodeReal(t *testing.T) {
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><real>1.2</real></plist>`
+	var data float64
+	expected := 1.2
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data != expected {
+		t.Error("Expected", expected, "got", data)
+	}
+}
+
+func TestDecodeDate(t *testing.T) {
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <date>2011-05-12T01:00:00Z</date>
+</plist>`
+	var data time.Time
+	expected, _ := time.Parse(time.RFC3339, "2011-05-12T01:00:00Z")
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data != expected {
+		t.Error("Expected", expected, "got", data)
 	}
 }
 
