@@ -2,6 +2,10 @@ package plist
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
@@ -84,6 +88,7 @@ func TestDecodeData(t *testing.T) {
 	}
 }
 
+// Unknown struct fields should return an error
 func TestDecodeUnknownStructField(t *testing.T) {
 	var sparseBundleHeader struct {
 		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
@@ -94,5 +99,34 @@ func TestDecodeUnknownStructField(t *testing.T) {
 	}
 	if err := Unmarshal([]byte(indentRef), &sparseBundleHeader); err == nil {
 		t.Error("Expected error `plist: unknown struct field unknownKey`, got nil")
+	}
+}
+
+func TestHTTPDecoding(t *testing.T) {
+	const raw = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><string>bar</string></plist>`
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(raw))
+	}))
+	defer ts.Close()
+	res, err := http.Get(ts.URL)
+	if err != nil {
+		log.Fatalf("GET failed: %v", err)
+	}
+	defer res.Body.Close()
+	var foo string
+	d := NewDecoder(res.Body)
+	err = d.Decode(&foo)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if foo != "bar" {
+		t.Errorf("decoded %q; want \"bar\"", foo)
+	}
+	err = d.Decode(&foo)
+	if err != io.EOF {
+		t.Errorf("err = %v; want io.EOF", err)
 	}
 }
