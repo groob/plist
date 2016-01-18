@@ -83,3 +83,16 @@ func TestDecodeData(t *testing.T) {
 		t.Error("Expected", expected, "got", string(out))
 	}
 }
+
+func TestDecodeUnknownStructField(t *testing.T) {
+	var sparseBundleHeader struct {
+		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
+		BandSize              uint64 `plist:"band-size"`
+		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
+		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
+		Size                  uint64 `plist:"unknownKey"`
+	}
+	if err := Unmarshal([]byte(indentRef), &sparseBundleHeader); err == nil {
+		t.Error("Expected error `plist: unknown struct field unknownKey`, got nil")
+	}
+}

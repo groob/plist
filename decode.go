@@ -107,6 +107,9 @@ func (d *Decoder) unmarshalDictionary(pval *plistValue, v reflect.Value) error {
 	case reflect.Struct:
 		fields := cachedTypeFields(v.Type())
 		for _, field := range fields {
+			if _, ok := subvalues[field.name]; !ok {
+				return fmt.Errorf("plist: unknown struct field %v", field.name)
+			}
 			if err := d.unmarshal(subvalues[field.name], field.value(v)); err != nil {
 				return err
 			}
