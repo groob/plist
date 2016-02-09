@@ -70,6 +70,21 @@ var indentRef = `<?xml version="1.0" encoding="UTF-8"?>
    </dict>
 </plist>`
 
+var indentRefOmit = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+   <dict>
+      <key>CFBundleInfoDictionaryVersion</key>
+      <string>6.0</string>
+      <key>bundle-backingstore-version</key>
+      <integer>1</integer>
+      <key>diskimage-bundle-type</key>
+      <string>com.apple.diskimage.sparsebundle</string>
+      <key>size</key>
+      <integer>4398046511104</integer>
+   </dict>
+</plist>`
+
 var encodeTests = []struct {
 	in  interface{}
 	out string
@@ -132,5 +147,52 @@ func TestIndent(t *testing.T) {
 	out := string(b)
 	if out != indentRef {
 		t.Errorf("MarshalIndent(%v) = \n%v, \nwant\n %v", sparseBundleHeader, out, indentRef)
+	}
+}
+
+func TestOmitNotEmpty(t *testing.T) {
+	sparseBundleHeader := struct {
+		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
+		BandSize              uint64 `plist:"band-size,omitempty"`
+		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
+		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
+		Size                  uint64 `plist:"size"`
+	}{
+		InfoDictionaryVersion: "6.0",
+		BandSize:              8388608,
+		Size:                  4 * 1048576 * 1024 * 1024,
+		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
+		BackingStoreVersion:   1,
+	}
+	b, err := MarshalIndent(sparseBundleHeader, "   ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(b)
+	if out != indentRef {
+		t.Errorf("MarshalIndent(%v) = \n%v, \nwant\n %v", sparseBundleHeader, out, indentRef)
+	}
+}
+
+func TestOmitIsEmpty(t *testing.T) {
+	sparseBundleHeader := struct {
+		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
+		BandSize              uint64 `plist:"band-size,omitempty"`
+		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
+		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
+		Size                  uint64 `plist:"size"`
+	}{
+		InfoDictionaryVersion: "6.0",
+		Size:                4 * 1048576 * 1024 * 1024,
+		DiskImageBundleType: "com.apple.diskimage.sparsebundle",
+		BackingStoreVersion: 1,
+	}
+	b, err := MarshalIndent(sparseBundleHeader, "   ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(b)
+	if out != indentRefOmit {
+		t.Errorf("MarshalIndent(%v) = \n%v, \nwant\n %v", sparseBundleHeader, out, indentRefOmit)
 	}
 }

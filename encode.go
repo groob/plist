@@ -14,6 +14,7 @@ type Encoder struct {
 	indent string
 }
 
+// Marshal ...
 func Marshal(v interface{}) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := NewEncoder(&buf).Encode(v); err != nil {
@@ -22,6 +23,7 @@ func Marshal(v interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// MarshalIndent ...
 func MarshalIndent(v interface{}, indent string) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := NewEncoder(&buf)
@@ -96,7 +98,10 @@ func (e *Encoder) marshalStruct(v reflect.Value) (*plistValue, error) {
 		m: make(map[string]*plistValue, len(fields)),
 	}
 	for _, field := range fields {
-		// TODO: omitempty
+		val := field.value(v)
+		if field.omitEmpty && isEmptyValue(val) {
+			continue
+		}
 		value, err := e.marshal(field.value(v))
 		if err != nil {
 			return nil, err
@@ -161,6 +166,7 @@ func (e *UnsupportedTypeError) Error() string {
 	return "plist: unsupported type: " + e.Type.String()
 }
 
+// UnsupportedValueError ...
 type UnsupportedValueError struct {
 	Value reflect.Value
 	Str   string
@@ -168,4 +174,22 @@ type UnsupportedValueError struct {
 
 func (e *UnsupportedValueError) Error() string {
 	return "plist: unsupported value: " + e.Str
+}
+
+func isEmptyValue(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Interface, reflect.Ptr:
+		return v.IsNil()
+	}
+	return false
 }

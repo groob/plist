@@ -3,15 +3,52 @@ package plist
 import (
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
+	"unicode"
 )
 
+// tagOptions is the string following a comma in a struct field's "json"
+// tag, or the empty string. It does not include the leading comma.
+type tagOptions string
+
+// parseTag splits a struct field's json tag into its name and
+// comma-separated options.
+func parseTag(tag string) (string, tagOptions) {
+	if idx := strings.Index(tag, ","); idx != -1 {
+		return tag[:idx], tagOptions(tag[idx+1:])
+	}
+	return tag, tagOptions("")
+}
+
+// Contains reports whether a comma-separated list of options
+// contains a particular substr flag. substr must be surrounded by a
+// string boundary or commas.
+func (o tagOptions) Contains(optionName string) bool {
+	if len(o) == 0 {
+		return false
+	}
+	s := string(o)
+	for s != "" {
+		var next string
+		i := strings.Index(s, ",")
+		if i >= 0 {
+			s, next = s[:i], s[i+1:]
+		}
+		if s == optionName {
+			return true
+		}
+		s = next
+	}
+	return false
+}
+
 type field struct {
-	name  string
-	tag   bool
-	index []int
-	typ   reflect.Type
-	// omitEmpty bool
+	name      string
+	tag       bool
+	index     []int
+	typ       reflect.Type
+	omitEmpty bool
 }
 
 func (f field) value(v reflect.Value) reflect.Value {
@@ -98,9 +135,13 @@ func typeFields(t reflect.Type) []field {
 				if sf.PkgPath != "" { // unexported
 					continue
 				}
-				name := sf.Tag.Get("plist")
-				if name == "-" {
+				tag := sf.Tag.Get("plist")
+				if tag == "-" {
 					continue
+				}
+				name, opts := parseTag(tag)
+				if !isValidTag(name) {
+					name = ""
 				}
 				index := make([]int, len(f.index)+1)
 				copy(index, f.index)
@@ -119,11 +160,11 @@ func typeFields(t reflect.Type) []field {
 						name = sf.Name
 					}
 					fields = append(fields, field{
-						name:  name,
-						tag:   tagged,
-						index: index,
-						typ:   ft,
-						// omitEmpty: opts.Contains("omitempty"),
+						name:      name,
+						tag:       tagged,
+						index:     index,
+						typ:       ft,
+						omitEmpty: opts.Contains("omitempty"),
 					})
 					if count[f.typ] > 1 {
 						// If there were multiple instances, add a second,
@@ -241,4 +282,23 @@ func cachedTypeFields(t reflect.Type) []field {
 	fieldCache.m[t] = f
 	fieldCache.Unlock()
 	return f
+}
+
+func isValidTag(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case strings.ContainsRune("!#$%&()*+-./:<=>?@[]^_{|}~ ", c):
+			// Backslash and quote chars are reserved, but
+			// otherwise any punctuation chars are allowed
+			// in a tag name.
+		default:
+			if !unicode.IsLetter(c) && !unicode.IsDigit(c) {
+				return false
+			}
+		}
+	}
+	return true
 }
