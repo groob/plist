@@ -163,7 +163,7 @@ func TestDecodeUnknownStructField(t *testing.T) {
 		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
 		Size                  uint64 `plist:"unknownKey"`
 	}
-	if err := Unmarshal([]byte(indentRef), &sparseBundleHeader); err == nil {
+	if err := Unmarshal([]byte(indentRef), &sparseBundleHeader); err != nil {
 		t.Error("Expected error `plist: unknown struct field unknownKey`, got nil")
 	}
 }
