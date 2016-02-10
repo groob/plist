@@ -47,7 +47,16 @@ func (e *xmlEncoder) generateDocument(pval *plistValue) error {
 		}
 		return nil
 	}
-	return e.writeElement("plist", pval, tokenFunc)
+	err = e.writeElement("plist", pval, tokenFunc)
+	if err != nil {
+		return err
+	}
+	// newline at the end of a plist document
+	_, err = e.writer.Write([]byte("\n"))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *xmlEncoder) writePlistValue(pval *plistValue) error {
