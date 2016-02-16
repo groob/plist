@@ -47,6 +47,18 @@ func (d *Decoder) unmarshal(pval *plistValue, v reflect.Value) error {
 		return nil
 	}
 
+	// change pointer values to the correct type
+	// ex type foo struct {
+	// 			  Foo *string `plist:"foo"
+	//		   }
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		v = v.Elem()
+
+	}
+
 	switch pval.kind {
 	case String:
 		return d.unmarshalString(pval, v)
@@ -137,6 +149,7 @@ func (d *Decoder) unmarshalDictionary(pval *plistValue, v reflect.Value) error {
 
 func (d *Decoder) unmarshalString(pval *plistValue, v reflect.Value) error {
 	if v.Kind() != reflect.String {
+		fmt.Println(v.Kind() == reflect.Ptr)
 		return UnmarshalTypeError{fmt.Sprintf("%s", pval.value.(string)), v.Type()}
 	}
 	v.SetString(pval.value.(string))

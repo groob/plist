@@ -196,3 +196,19 @@ func TestHTTPDecoding(t *testing.T) {
 		t.Errorf("err = %v; want io.EOF", err)
 	}
 }
+
+func TestDecodePointer(t *testing.T) {
+	var sparseBundleHeader struct {
+		InfoDictionaryVersion *string `plist:"CFBundleInfoDictionaryVersion"`
+		BandSize              *uint64 `plist:"band-size"`
+		BackingStoreVersion   int     `plist:"bundle-backingstore-version"`
+		DiskImageBundleType   string  `plist:"diskimage-bundle-type"`
+		Size                  uint64  `plist:"unknownKey"`
+	}
+	if err := Unmarshal([]byte(indentRef), &sparseBundleHeader); err != nil {
+		t.Fatal(err)
+	}
+	if *sparseBundleHeader.InfoDictionaryVersion != "6.0" {
+		t.Error("Expected", "6.0", "got", *sparseBundleHeader.InfoDictionaryVersion)
+	}
+}
