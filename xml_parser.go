@@ -1,10 +1,12 @@
 package plist
 
 import (
+	"encoding/base64"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -162,10 +164,17 @@ func (p *xmlParser) parseInteger(element *xml.StartElement) (*plistValue, error)
 }
 
 func (p *xmlParser) parseData(element *xml.StartElement) (*plistValue, error) {
+	replacer := strings.NewReplacer("\t", "", "\n", "", " ", "", "\r", "")
 	var data []byte
 	if err := p.DecodeElement(&data, element); err != nil {
 		return nil, err
 	}
+	str := replacer.Replace(string(data))
+	decoded, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return nil, err
+	}
+	data = []byte(decoded)
 	return &plistValue{Data, data}, nil
 }
 
