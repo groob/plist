@@ -176,8 +176,38 @@ func (e *xmlEncoder) writeDictionaryValue(pval *plistValue) error {
 	return e.writeElement("dict", pval, tokenFunc)
 }
 
+// encode strings as CharData, which doesn't escape newline
+// see https://github.com/golang/go/issues/9204
 func (e *xmlEncoder) writeStringValue(pval *plistValue) error {
-	return e.EncodeElement(pval.value, xml.StartElement{Name: xml.Name{Local: "string"}})
+	startElement := xml.StartElement{Name: xml.Name{Local: "string"}}
+	// Encode xml.StartElement token
+	if err := e.EncodeToken(startElement); err != nil {
+		return err
+	}
+
+	// flush
+	if err := e.Flush(); err != nil {
+		return err
+	}
+
+	stringValue := pval.value.(string)
+	if err := e.EncodeToken(xml.CharData(stringValue)); err != nil {
+		return err
+	}
+
+	// flush
+	if err := e.Flush(); err != nil {
+		return err
+	}
+
+	// Encode xml.EndElement token
+	if err := e.EncodeToken(startElement.End()); err != nil {
+		return err
+	}
+
+	// flush
+	return e.Flush()
+
 }
 
 func (e *xmlEncoder) writeBoolValue(pval *plistValue) error {

@@ -140,6 +140,34 @@ func TestEncodeValues(t *testing.T) {
 	}
 }
 
+func TestNewLineString(t *testing.T) {
+	multiline := struct {
+		Content string
+	}{
+		Content: "foo\nbar",
+	}
+
+	b, err := MarshalIndent(multiline, "   ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ok = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+   <dict>
+      <key>Content</key>
+      <string>foo
+bar</string>
+   </dict>
+</plist>
+`
+	out := string(b)
+	if out != ok {
+		t.Errorf("Marshal(%v) = \n%v, \nwant\n %v", multiline, out, ok)
+	}
+
+}
+
 func TestIndent(t *testing.T) {
 	sparseBundleHeader := struct {
 		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
