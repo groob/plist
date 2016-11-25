@@ -157,6 +157,17 @@ func TestDecodeData(t *testing.T) {
 	}
 }
 
+func TestDecodeData_emptyData(t *testing.T) {
+	var before, after []byte
+	if err := Unmarshal([]byte(emptyDataRef), &after); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Log("empty <data></data> should result in []byte(nil)")
+		t.Errorf("before %#v, after %#v", before, after)
+	}
+}
+
 // Unknown struct fields should return an error
 func TestDecodeUnknownStructField(t *testing.T) {
 	var sparseBundleHeader struct {
