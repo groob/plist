@@ -169,6 +169,9 @@ func (p *xmlParser) parseData(element *xml.StartElement) (*plistValue, error) {
 	if err := p.DecodeElement(&data, element); err != nil {
 		return nil, err
 	}
+	if len(data) == 0 {
+		return &plistValue{Data, []byte(nil)}, nil
+	}
 	str := replacer.Replace(string(data))
 	decoded, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
