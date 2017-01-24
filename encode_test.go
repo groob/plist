@@ -50,6 +50,11 @@ var arrRef = `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><array><string>a</string><string>b</string><string>c</string><integer>4</integer><true></true></array></plist>
 `
 
+var byteArrRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><array><data>/////////////////////w==</data></array></plist>
+`
+
 var time1900Ref = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><date>1900-01-01T12:00:00Z</date></plist>
@@ -129,6 +134,9 @@ var encodeTests = []struct {
 		Bool bool   `plist:"bool"`
 	}{"bar", true},
 		dictRef},
+	{[][16]byte{
+		[16]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+	}, byteArrRef},
 }
 
 func TestEncodeValues(t *testing.T) {
