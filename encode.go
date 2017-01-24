@@ -115,7 +115,7 @@ func (e *Encoder) marshalArray(v reflect.Value) (*plistValue, error) {
 	if v.Type().Elem().Kind() == reflect.Uint8 {
 		bytes := []byte(nil)
 		if v.CanAddr() {
-			bytes = v.Bytes()
+			bytes = v.Slice(0, v.Len()).Bytes()
 		} else {
 			bytes = make([]byte, v.Len())
 			reflect.Copy(reflect.ValueOf(bytes), v)
