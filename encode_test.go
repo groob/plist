@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"bytes"
 	"testing"
 	"time"
 )
@@ -249,5 +250,31 @@ func TestOmitIsEmpty(t *testing.T) {
 	out := string(b)
 	if out != indentRefOmit {
 		t.Errorf("MarshalIndent(%v) = \n%v, \nwant\n %v", sparseBundleHeader, out, indentRefOmit)
+	}
+}
+
+type marshalerTest struct {
+	marshalFuncInvoked bool
+	MustMarshal        string
+}
+
+func (m *marshalerTest) MarshalPlist() (interface{}, error) {
+	m.marshalFuncInvoked = true
+	return &m.MustMarshal, nil
+}
+
+func TestMarshaler(t *testing.T) {
+	want := []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><string>pants</string></plist>
+`)
+	m := marshalerTest{MustMarshal: "pants"}
+	have, err := Marshal(&m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(have, want) {
+		t.Errorf("expected \n%s got \n%s\n", have, want)
 	}
 }

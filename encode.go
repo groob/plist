@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+type Marshaler interface {
+	MarshalPlist() (interface{}, error)
+}
+
 // Encoder ...
 type Encoder struct {
 	w io.Writer
@@ -57,6 +61,29 @@ func (e *Encoder) Indent(indent string) {
 }
 
 func (e *Encoder) marshal(v reflect.Value) (*plistValue, error) {
+	marshalerType := reflect.TypeOf((*Marshaler)(nil)).Elem()
+
+	if v.CanInterface() && v.Type().Implements(marshalerType) {
+		m := v.Interface().(Marshaler)
+		val, err := m.MarshalPlist()
+		if err != nil {
+			return nil, err
+		}
+		return e.marshal(reflect.ValueOf(val))
+	}
+
+	if v.CanAddr() {
+		pv := v.Addr()
+		if pv.CanInterface() && pv.Type().Implements(marshalerType) {
+			m := pv.Interface().(Marshaler)
+			val, err := m.MarshalPlist()
+			if err != nil {
+				return nil, err
+			}
+			return e.marshal(reflect.ValueOf(val))
+		}
+	}
+
 	// check for empty interface v type
 	if v.Kind() == reflect.Interface && v.NumMethod() == 0 || v.Kind() == reflect.Ptr {
 		v = v.Elem()

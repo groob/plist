@@ -226,3 +226,32 @@ func TestDecodePointer(t *testing.T) {
 		t.Error("Expected", "6.0", "got", *sparseBundleHeader.InfoDictionaryVersion)
 	}
 }
+
+type unmarshalerTest struct {
+	unmarshalInvoked bool
+	MustDecode       string
+}
+
+func (u *unmarshalerTest) UnmarshalPlist(f func(i interface{}) error) error {
+	u.unmarshalInvoked = true
+	return f(&u.MustDecode)
+}
+
+func TestUnmarshaler(t *testing.T) {
+	const raw = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><string>bar</string></plist>`
+
+	var u unmarshalerTest
+	if err := Unmarshal([]byte(raw), &u); err != nil {
+		t.Fatal(err)
+	}
+
+	if !u.unmarshalInvoked {
+		t.Errorf("expected the UnmarshalPlist method to be invoked for unmarshaler")
+	}
+
+	if have, want := u.MustDecode, "bar"; have != want {
+		t.Errorf("have %s, want %s", have, want)
+	}
+}
