@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+// MarshalFunc is a function used to Unmarshal custom plist types.
+type MarshalFunc func(interface{}) error
+
+type Unmarshaler interface {
+	UnmarshalPlist(f func(interface{}) error) error
+}
+
 // Unmarshal parses the plist-encoded data and stores the result in the value pointed to by v.
 func Unmarshal(data []byte, v interface{}) error {
 	return NewDecoder(bytes.NewReader(data)).Decode(v)
@@ -45,6 +52,19 @@ func (d *Decoder) unmarshal(pval *plistValue, v reflect.Value) error {
 		val := d.valueInterface(pval)
 		v.Set(reflect.ValueOf(val))
 		return nil
+	}
+
+	unmarshalerType := reflect.TypeOf((*Unmarshaler)(nil)).Elem()
+
+	if v.CanAddr() {
+		pv := v.Addr()
+		if pv.CanInterface() && pv.Type().Implements(unmarshalerType) {
+			u := pv.Interface().(Unmarshaler)
+			return u.UnmarshalPlist(func(i interface{}) error {
+				return d.unmarshal(pval, reflect.ValueOf(i))
+			})
+		}
+
 	}
 
 	// change pointer values to the correct type
@@ -149,7 +169,6 @@ func (d *Decoder) unmarshalDictionary(pval *plistValue, v reflect.Value) error {
 
 func (d *Decoder) unmarshalString(pval *plistValue, v reflect.Value) error {
 	if v.Kind() != reflect.String {
-		fmt.Println(v.Kind() == reflect.Ptr)
 		return UnmarshalTypeError{fmt.Sprintf("%s", pval.value.(string)), v.Type()}
 	}
 	v.SetString(pval.value.(string))
