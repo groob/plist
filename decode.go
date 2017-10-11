@@ -28,8 +28,14 @@ func Unmarshal(data []byte, v interface{}) error {
 // A Decoder reads and decodes Apple plist objects from an input stream.
 // The plists can be in XML or binary format.
 type Decoder struct {
-	reader   interface{} // io.Reader for XML, io.ReadSeeker for binary
-	isBinary bool        // true if this is a binary plist
+	reader   io.Reader // binary decoders assert this to io.ReadSeeker 
+	isBinary bool      // true if this is a binary plist
+}
+
+// NewDecoder returns a new XML plist decoder.
+// DEPRECATED: Please use NewXMLDecoder instead.
+func NewDecoder(r io.Reader) *Decoder {
+	return NewXMLDecoder(r)
 }
 
 // NewXMLDecoder returns a new decoder that reads an XML plist from r.
@@ -45,7 +51,7 @@ func NewBinaryDecoder(r io.ReadSeeker) *Decoder {
 
 // Decode reads the next plist-encoded value from its input and stores it in
 // the value pointed to by v.  Decode uses xml.Decoder to do the heavy lifting
-// for XML plists, otherwise uses binaryParser.
+// for XML plists, and uses binaryParser for binary plists.
 func (d *Decoder) Decode(v interface{}) error {
 	val := reflect.ValueOf(v)
 	if val.Kind() != reflect.Ptr {
@@ -53,9 +59,13 @@ func (d *Decoder) Decode(v interface{}) error {
 	}
 	var pval *plistValue
 	if d.isBinary {
-		// For binary decoder, cast the reader to an io.ReadSeeker
+		// For binary decoder, type assert the reader to an io.ReadSeeker
 		var err error
-		parser, err := newBinaryParser(d.reader.(io.ReadSeeker))
+		r, ok := d.reader.(io.ReadSeeker)
+		if !ok {
+			return fmt.Errorf("binary plist decoder requires an io.ReadSeeker")
+		}
+		parser, err := newBinaryParser(r)
 		if err != nil {
 			return err
 		}
@@ -65,7 +75,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		}
 	} else {
 		var err error
-		parser := newXMLParser(d.reader.(io.Reader))
+		parser := newXMLParser(d.reader)
 		pval, err = parser.parseDocument(nil)
 		if err != nil {
 			return err
