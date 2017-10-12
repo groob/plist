@@ -180,7 +180,7 @@ func (p *xmlParser) parseInteger(element *xml.StartElement) (*plistValue, error)
 	if err != nil {
 		return nil, err
 	}
-	return &plistValue{Integer, signedInt{uint64(u), false}}, nil
+	return &plistValue{Integer, signedInt{u, false}}, nil
 }
 
 func (p *xmlParser) parseData(element *xml.StartElement) (*plistValue, error) {
