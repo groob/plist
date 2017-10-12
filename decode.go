@@ -251,6 +251,11 @@ func (d *Decoder) unmarshalInteger(pval *plistValue, v reflect.Value) error {
 		v.SetInt(int64(pval.value.(signedInt).value))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16,
 		reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		// Make sure plistValue isn't negative when decoding into uint.
+		if pval.value.(signedInt).signed {
+			return UnmarshalTypeError{
+				fmt.Sprintf("%v", int64(pval.value.(signedInt).value)), v.Type()}
+		}
 		v.SetUint(pval.value.(signedInt).value)
 	default:
 		return UnmarshalTypeError{

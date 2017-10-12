@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -156,11 +157,30 @@ func (p *xmlParser) parseReal(element *xml.StartElement) (*plistValue, error) {
 }
 
 func (p *xmlParser) parseInteger(element *xml.StartElement) (*plistValue, error) {
-	var n uint64
-	if err := p.DecodeElement(&n, element); err != nil {
+	// Based on testing with plutil -lint, the largest positive integer
+	// that you can store in an XML plist is 2^64 - 1 (in a uint64)
+	// and the largest negative integer you can store is -2^63 (in an int64)
+	// Since we need to know the sign before we can know what integer type
+	// to decode into, first decode into a string to check for "-".
+	var s string
+	if err := p.DecodeElement(&s, element); err != nil {
 		return nil, err
 	}
-	return &plistValue{Integer, signedInt{n, false}}, nil
+	// Determine if this is a negative number by checking for minus sign.
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "-") {
+		i, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return &plistValue{Integer, signedInt{uint64(i), true}}, nil
+	}
+	// Otherwise assume positive number and put into uint64.
+	u, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &plistValue{Integer, signedInt{uint64(u), false}}, nil
 }
 
 func (p *xmlParser) parseData(element *xml.StartElement) (*plistValue, error) {

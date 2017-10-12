@@ -84,6 +84,7 @@ func TestDecodeDict(t *testing.T) {
 		t.Fatal("Expected", "6.0", "got", mapHeader["CFBundleInfoDictionaryVersion"])
 	}
 }
+
 func TestDecodeArray(t *testing.T) {
 	const input = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -112,12 +113,80 @@ func TestDecodeBoolean(t *testing.T) {
 	}
 }
 
+func TestDecodeLargeInteger(t *testing.T) {
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><integer>18446744073709551615</integer></plist>`
+	var data uint64
+	expected := uint64(18446744073709551615)
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data != expected {
+		t.Error("Expected", expected, "got", data)
+	}
+}
+
+func TestDecodeNegativeInteger(t *testing.T) {
+	// There is an intentional space before -42.
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><integer> -42</integer></plist>`
+	var data int
+	expected := -42
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data != expected {
+		t.Error("Expected", expected, "got", data)
+	}
+}
+
+func TestDecodeNegativeIntegerIntoUint(t *testing.T) {
+	// There is an intentional space before -42.
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><integer>-42</integer></plist>`
+	var data uint
+	if err := Unmarshal([]byte(input), &data); err == nil {
+		t.Error("Expected error, but unmarshal gave", data)
+	}
+}
+
+func TestDecodeLargeNegativeInteger(t *testing.T) {
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><integer>-9223372036854775808</integer></plist>`
+	var data int64
+	expected := int64(-9223372036854775808)
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data != expected {
+		t.Error("Expected", expected, "got", data)
+	}
+}
+
 func TestDecodeReal(t *testing.T) {
 	const input = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><real>1.2</real></plist>`
 	var data float64
 	expected := 1.2
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data != expected {
+		t.Error("Expected", expected, "got", data)
+	}
+}
+
+func TestDecodeNegativeReal(t *testing.T) {
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><real>-3.14159</real></plist>`
+	var data float64
+	expected := -3.14159
 	if err := Unmarshal([]byte(input), &data); err != nil {
 		t.Fatal(err)
 	}
@@ -165,6 +234,20 @@ func TestDecodeData_emptyData(t *testing.T) {
 	if !reflect.DeepEqual(before, after) {
 		t.Log("empty <data></data> should result in []byte(nil)")
 		t.Errorf("before %#v, after %#v", before, after)
+	}
+}
+
+func TestDecodeUnicodeString(t *testing.T) {
+	const input = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><string>こんにちは世界</string></plist>`
+	var data string
+	expected := "こんにちは世界"
+	if err := Unmarshal([]byte(input), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data != expected {
+		t.Error("Expected", expected, "got", data)
 	}
 }
 
