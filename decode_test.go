@@ -1,7 +1,10 @@
 package plist
 
 import (
+	"bytes"
+	"encoding/base64"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -143,7 +146,6 @@ func TestDecodeNegativeInteger(t *testing.T) {
 }
 
 func TestDecodeNegativeIntegerIntoUint(t *testing.T) {
-	// There is an intentional space before -42.
 	const input = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><integer>-42</integer></plist>`
@@ -307,6 +309,70 @@ func TestDecodePointer(t *testing.T) {
 	}
 	if *sparseBundleHeader.InfoDictionaryVersion != "6.0" {
 		t.Error("Expected", "6.0", "got", *sparseBundleHeader.InfoDictionaryVersion)
+	}
+}
+
+
+func TestDecodeBinaryPlist(t *testing.T) {
+	var sample struct {
+		Ints     []int64   `plist:"ints"`
+		Unsigned uint64    `plist:"unsigned"`
+		Reals    []float64 `plist:"reals"`
+		Date     time.Time `plist:"date"`
+		Strings  []string  `plist:"strings"`
+		Data     []byte    `plist:"data"`
+	}
+	content, err := ioutil.ReadFile("sample.binary.plist")
+	if err != nil {
+		t.Error("couldn't read sample.binary.plist: ", err)
+	}
+	if err := Unmarshal(content, &sample); err != nil {
+		t.Error("couldn't unmarshal binary plist:", err)
+	}
+
+	expectedInts := []int64{0, 42, -42, -123456, -9223372036854775807, 9223372036854775807}
+	if len(expectedInts) != len(sample.Ints) {
+		t.Errorf("expected %d ints, but only decoded %d ints", len(expectedInts), len(sample.Ints))
+	}
+	for i, x := range expectedInts {
+		if sample.Ints[i] != x {
+			t.Error("expected", x, "got", sample.Ints[i])
+		}
+	}
+
+	expectedUnsigned := uint64(18446744073709551615)
+	if sample.Unsigned != expectedUnsigned {
+		t.Error("expected", expectedUnsigned, "got", sample.Unsigned)
+	}
+
+	expectedReals := []float64{0.0, 3.14159, -1234.5678}
+	if len(expectedReals) != len(sample.Reals) {
+		t.Errorf("expected %d reals, but only decoded %d reals", len(expectedReals), len(sample.Reals))
+	}
+	for i, x := range expectedReals {
+		if sample.Reals[i] != x {
+			t.Error("expected", x, "got", sample.Reals[i])
+		}
+	}
+
+	expectedDate, _ := time.Parse(time.RFC3339, "2038-01-19T03:14:08Z")
+	if !sample.Date.Equal(expectedDate) {
+		t.Error("expected", expectedDate, "got", sample.Date)
+	}
+
+	expectedStrings := []string{"short", "こんにちは世界", "this is a much longer string having more than 14 characters"}
+	if len(expectedStrings) != len(sample.Strings) {
+		t.Errorf("expected %d strings, but only decoded %d strings", len(expectedStrings), len(sample.Strings))
+	}
+	for i, x := range expectedStrings {
+		if sample.Strings[i] != x {
+			t.Error("expected", x, "got", sample.Strings[i])
+		}
+	}
+
+	expectedData, _ := base64.StdEncoding.DecodeString("PEKBpYGlmYFCPA==")
+	if bytes.Compare(sample.Data, expectedData) != 0 {
+		t.Errorf("expected", expectedData, "got", sample.Data)
 	}
 }
 

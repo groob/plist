@@ -63,8 +63,6 @@ func newBinaryParser(r io.ReadSeeker) (*binaryParser, error) {
 
 // parseDocument parses the entire binary plist starting from the root object
 // and returns a plistValue representing the root object.
-// TODO: xmlParser has a start argument, but not sure what the point of it is,
-// so left it out here.
 func (bp *binaryParser) parseDocument() (*plistValue, error) {
 	// Decode and return the root object.
 	return bp.parseObjectRef(bp.RootObject)
@@ -125,7 +123,7 @@ func (bp *binaryParser) parseObjectRef(index uint64) (val *plistValue, err error
 	case 0xd: // dictionary
 		return bp.parseDict(marker)
 	}
-	return nil, fmt.Errorf("unkown object type %x", marker>>4)
+	return nil, fmt.Errorf("unknown object type %x", marker>>4)
 }
 
 func (bp *binaryParser) parseSingleton(marker byte) (*plistValue, error) {
@@ -144,21 +142,22 @@ func (bp *binaryParser) parseSingleton(marker byte) (*plistValue, error) {
 
 func (bp *binaryParser) parseInteger(marker byte) (*plistValue, error) {
 	nbytes := 1 << (marker & 0xf)
-	// The binary plist format allows for 16 byte integers, but we don't have
-	// any easy way to decode them (have to use math/big package?)
-	if nbytes > 8 {
-		return nil, fmt.Errorf("can't decode integer longer than 8 bytes (%d)", nbytes)
+	if nbytes > 16 {
+		return nil, fmt.Errorf("cannot decode integer longer than 16 bytes (%d)", nbytes)
 	}
-	// Create an 8-byte buffer to read into.  If nbytes < 8, then we
-	// only read into the trailing bytes and zero-fill the rest.
-	buf := make([]byte, 8)
-	_, err := bp.Read(buf[8-nbytes:])
+	// Create an 16-byte buffer to read into, but only read into the
+	// trailing bytes and zero-fill the rest.  Only the last 8 bytes are
+	// significant, but uint64s are encoded as 16 bytes.
+	buf := make([]byte, 16)
+	_, err := bp.Read(buf[16-nbytes:])
 	if err != nil {
 		return nil, err
 	}
 	// 1, 2, and 4 byte integers are always interpreted as unsigned,
-	// whereas 8 byte integers are always signed.
-	result := signedInt{binary.BigEndian.Uint64(buf), nbytes == 8}
+	// whereas 8 byte integers are always signed.  16 byte integers
+	// indicate an uint64, where only the last 8 bytes actually contain
+	// any useful bits.
+	result := signedInt{binary.BigEndian.Uint64(buf[8:]), nbytes == 8}
 
 	return &plistValue{Integer, result}, nil
 }
