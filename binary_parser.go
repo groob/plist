@@ -36,24 +36,24 @@ func newBinaryParser(r io.ReadSeeker) (*binaryParser, error) {
 
 	// Read the trailer.
 	if _, err := bp.Seek(-32, io.SeekEnd); err != nil {
-		return nil, fmt.Errorf("couldn't seek to start of trailer: %v", err)
+		return nil, fmt.Errorf("plist: couldn't seek to start of trailer: %v", err)
 	}
 	if err := binary.Read(bp, binary.BigEndian, &bp.plistTrailer); err != nil {
-		return nil, fmt.Errorf("couldn't read trailer: %v", err)
+		return nil, fmt.Errorf("plist: couldn't read trailer: %v", err)
 	}
 
 	// Read the offset table.
 	if _, err := bp.Seek(int64(bp.OffsetTableOffset), io.SeekStart); err != nil {
-		return nil, fmt.Errorf("couldn't seek to start of offset table: %v", err)
+		return nil, fmt.Errorf("plist: couldn't seek to start of offset table: %v", err)
 	}
 	bp.OffsetTable = make([]uint64, bp.NumObjects)
 	if bp.OffsetIntSize > 8 {
-		return nil, fmt.Errorf("can't decode when offset int size (%d) is greater than 8", bp.OffsetIntSize)
+		return nil, fmt.Errorf("plist: can't decode when offset int size (%d) is greater than 8", bp.OffsetIntSize)
 	}
 	for i := uint64(0); i < bp.NumObjects; i++ {
 		buf := make([]byte, 8)
 		if _, err := bp.Read(buf[8-bp.OffsetIntSize:]); err != nil {
-			return nil, fmt.Errorf("couldn't read offset table: %v", err)
+			return nil, fmt.Errorf("plist: couldn't read offset table: %v", err)
 		}
 		bp.OffsetTable[i] = uint64(binary.BigEndian.Uint64(buf))
 	}
@@ -63,8 +63,6 @@ func newBinaryParser(r io.ReadSeeker) (*binaryParser, error) {
 
 // parseDocument parses the entire binary plist starting from the root object
 // and returns a plistValue representing the root object.
-// TODO: xmlParser has a start argument, but not sure what the point of it is,
-// so left it out here.
 func (bp *binaryParser) parseDocument() (*plistValue, error) {
 	// Decode and return the root object.
 	return bp.parseObjectRef(bp.RootObject)
@@ -125,7 +123,7 @@ func (bp *binaryParser) parseObjectRef(index uint64) (val *plistValue, err error
 	case 0xd: // dictionary
 		return bp.parseDict(marker)
 	}
-	return nil, fmt.Errorf("unkown object type %x", marker>>4)
+	return nil, fmt.Errorf("plist: unknown object type %x", marker>>4)
 }
 
 func (bp *binaryParser) parseSingleton(marker byte) (*plistValue, error) {
@@ -139,26 +137,27 @@ func (bp *binaryParser) parseSingleton(marker byte) (*plistValue, error) {
 	case 0xf: // fill (not supported)
 		return &plistValue{Invalid, nil}, nil
 	}
-	return nil, fmt.Errorf("unrecognized singleton type %x", marker&0xf)
+	return nil, fmt.Errorf("plist: unrecognized singleton type %x", marker&0xf)
 }
 
 func (bp *binaryParser) parseInteger(marker byte) (*plistValue, error) {
 	nbytes := 1 << (marker & 0xf)
-	// The binary plist format allows for 16 byte integers, but we don't have
-	// any easy way to decode them (have to use math/big package?)
-	if nbytes > 8 {
-		return nil, fmt.Errorf("can't decode integer longer than 8 bytes (%d)", nbytes)
+	if nbytes > 16 {
+		return nil, fmt.Errorf("plist: cannot decode integer longer than 16 bytes (%d)", nbytes)
 	}
-	// Create an 8-byte buffer to read into.  If nbytes < 8, then we
-	// only read into the trailing bytes and zero-fill the rest.
-	buf := make([]byte, 8)
-	_, err := bp.Read(buf[8-nbytes:])
+	// Create an 16-byte buffer to read into, but only read into the
+	// trailing bytes and zero-fill the rest.  Only the last 8 bytes are
+	// significant, but uint64s are encoded as 16 bytes.
+	buf := make([]byte, 16)
+	_, err := bp.Read(buf[16-nbytes:])
 	if err != nil {
 		return nil, err
 	}
 	// 1, 2, and 4 byte integers are always interpreted as unsigned,
-	// whereas 8 byte integers are always signed.
-	result := signedInt{binary.BigEndian.Uint64(buf), nbytes == 8}
+	// whereas 8 byte integers are always signed.  16 byte integers
+	// indicate an uint64, where only the last 8 bytes actually contain
+	// any useful bits.
+	result := signedInt{binary.BigEndian.Uint64(buf[8:]), nbytes == 8}
 
 	return &plistValue{Integer, result}, nil
 }
@@ -178,7 +177,7 @@ func (bp *binaryParser) parseReal(marker byte) (*plistValue, error) {
 
 func (bp *binaryParser) parseDate(marker byte) (*plistValue, error) {
 	if marker&0xf != 0x3 {
-		return nil, fmt.Errorf("invalid marker byte for date: %x", marker)
+		return nil, fmt.Errorf("plist: invalid marker byte for date: %x", marker)
 	}
 	buf := make([]byte, 8)
 	if _, err := bp.Read(buf); err != nil {
@@ -270,7 +269,7 @@ func (bp *binaryParser) parseDict(marker byte) (*plistValue, error) {
 	m := make(map[string]*plistValue)
 	for i := uint64(0); i < count; i++ {
 		if keys[i].kind != String {
-			return nil, fmt.Errorf("dictionary key is not a string: %v", keys[i])
+			return nil, fmt.Errorf("plist: dictionary key is not a string: %v", keys[i])
 		}
 		m[keys[i].value.(string)] = vals[i]
 	}
