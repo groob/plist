@@ -92,6 +92,13 @@ func (d *Decoder) unmarshal(pval *plistValue, v reflect.Value) error {
 		return nil
 	}
 
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		v = v.Elem()
+	}
+
 	unmarshalerType := reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 
 	if v.CanInterface() && v.Type().Implements(unmarshalerType) {
