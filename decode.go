@@ -28,7 +28,7 @@ func Unmarshal(data []byte, v interface{}) error {
 // A Decoder reads and decodes Apple plist objects from an input stream.
 // The plists can be in XML or binary format.
 type Decoder struct {
-	reader   io.Reader // binary decoders assert this to io.ReadSeeker 
+	reader   io.Reader // binary decoders assert this to io.ReadSeeker
 	isBinary bool      // true if this is a binary plist
 }
 
@@ -93,6 +93,13 @@ func (d *Decoder) unmarshal(pval *plistValue, v reflect.Value) error {
 	}
 
 	unmarshalerType := reflect.TypeOf((*Unmarshaler)(nil)).Elem()
+
+	if v.CanInterface() && v.Type().Implements(unmarshalerType) {
+		u := v.Interface().(Unmarshaler)
+		return u.UnmarshalPlist(func(i interface{}) error {
+			return d.unmarshal(pval, reflect.ValueOf(i))
+		})
+	}
 
 	if v.CanAddr() {
 		pv := v.Addr()
