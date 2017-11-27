@@ -90,6 +90,11 @@ var indentRef = `<?xml version="1.0" encoding="UTF-8"?>
       <string>com.apple.diskimage.sparsebundle</string>
       <key>size</key>
       <integer>4398046511104</integer>
+			<key>useless</key>
+			<dict>
+				<key>unused-string</key>
+			  <string>unused</string>
+			</dict>
    </dict>
 </plist>
 `
@@ -109,6 +114,10 @@ var indentRefOmit = `<?xml version="1.0" encoding="UTF-8"?>
    </dict>
 </plist>
 `
+
+type testStruct struct {
+	unusedString string
+}
 
 var encodeTests = []struct {
 	in  interface{}
@@ -208,17 +217,19 @@ func TestIndent(t *testing.T) {
 
 func TestOmitNotEmpty(t *testing.T) {
 	sparseBundleHeader := struct {
-		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
-		BandSize              uint64 `plist:"band-size,omitempty"`
-		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
-		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
-		Size                  uint64 `plist:"size"`
+		InfoDictionaryVersion string     `plist:"CFBundleInfoDictionaryVersion"`
+		BandSize              uint64     `plist:"band-size,omitempty"`
+		BackingStoreVersion   int        `plist:"bundle-backingstore-version"`
+		DiskImageBundleType   string     `plist:"diskimage-bundle-type"`
+		Size                  uint64     `plist:"size"`
+		Unused                testStruct `plist:"uesless"`
 	}{
 		InfoDictionaryVersion: "6.0",
 		BandSize:              8388608,
 		Size:                  4 * 1048576 * 1024 * 1024,
 		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
 		BackingStoreVersion:   1,
+		Unused:                {"unused"},
 	}
 	b, err := MarshalIndent(sparseBundleHeader, "   ")
 	if err != nil {
@@ -232,11 +243,12 @@ func TestOmitNotEmpty(t *testing.T) {
 
 func TestOmitIsEmpty(t *testing.T) {
 	sparseBundleHeader := struct {
-		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
-		BandSize              uint64 `plist:"band-size,omitempty"`
-		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
-		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
-		Size                  uint64 `plist:"size"`
+		InfoDictionaryVersion string     `plist:"CFBundleInfoDictionaryVersion"`
+		BandSize              uint64     `plist:"band-size,omitempty"`
+		BackingStoreVersion   int        `plist:"bundle-backingstore-version"`
+		DiskImageBundleType   string     `plist:"diskimage-bundle-type"`
+		Size                  uint64     `plist:"size"`
+		Unused                testStruct `plist:"useless,omitempty"`
 	}{
 		InfoDictionaryVersion: "6.0",
 		Size:                4 * 1048576 * 1024 * 1024,
