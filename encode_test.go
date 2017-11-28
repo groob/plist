@@ -90,11 +90,11 @@ var indentRef = `<?xml version="1.0" encoding="UTF-8"?>
       <string>com.apple.diskimage.sparsebundle</string>
       <key>size</key>
       <integer>4398046511104</integer>
-			<key>useless</key>
-			<dict>
-				<key>unused-string</key>
-			  <string>unused</string>
-			</dict>
+      <key>useless</key>
+      <dict>
+         <key>unused-string</key>
+         <string>unused</string>
+      </dict>
    </dict>
 </plist>
 `
@@ -116,7 +116,7 @@ var indentRefOmit = `<?xml version="1.0" encoding="UTF-8"?>
 `
 
 type testStruct struct {
-	unusedString string
+	UnusedString string `plist:"unused-string"`
 }
 
 var encodeTests = []struct {
@@ -198,12 +198,14 @@ func TestIndent(t *testing.T) {
 		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
 		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
 		Size                  uint64 `plist:"size"`
+		Unused                testStruct `plist:"useless"`
 	}{
 		InfoDictionaryVersion: "6.0",
 		BandSize:              8388608,
 		Size:                  4 * 1048576 * 1024 * 1024,
 		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
 		BackingStoreVersion:   1,
+		Unused:                testStruct{"unused"},
 	}
 	b, err := MarshalIndent(sparseBundleHeader, "   ")
 	if err != nil {
@@ -222,14 +224,14 @@ func TestOmitNotEmpty(t *testing.T) {
 		BackingStoreVersion   int        `plist:"bundle-backingstore-version"`
 		DiskImageBundleType   string     `plist:"diskimage-bundle-type"`
 		Size                  uint64     `plist:"size"`
-		Unused                testStruct `plist:"uesless"`
+		Unused                testStruct `plist:"useless"`
 	}{
 		InfoDictionaryVersion: "6.0",
 		BandSize:              8388608,
 		Size:                  4 * 1048576 * 1024 * 1024,
 		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
 		BackingStoreVersion:   1,
-		Unused:                {"unused"},
+		Unused:                testStruct{"unused"},
 	}
 	b, err := MarshalIndent(sparseBundleHeader, "   ")
 	if err != nil {
