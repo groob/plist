@@ -312,7 +312,6 @@ func TestDecodePointer(t *testing.T) {
 	}
 }
 
-
 func TestDecodeBinaryPlist(t *testing.T) {
 	var sample struct {
 		Ints     []int64   `plist:"ints"`
@@ -372,7 +371,7 @@ func TestDecodeBinaryPlist(t *testing.T) {
 
 	expectedData, _ := base64.StdEncoding.DecodeString("PEKBpYGlmYFCPA==")
 	if bytes.Compare(sample.Data, expectedData) != 0 {
-		t.Errorf("expected", expectedData, "got", sample.Data)
+		t.Errorf("got %v expected %v", sample.Data, expectedData)
 	}
 }
 

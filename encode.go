@@ -218,8 +218,7 @@ func isEmptyValue(v reflect.Value) bool {
 	case reflect.Interface, reflect.Ptr:
 		return v.IsNil()
 	case reflect.Struct:
-		testStruct := reflect.Zero(v.Type())
-		return v.Interface() == testStruct.Interface()
+		return v.Interface() == reflect.Zero(v.Type()).Interface()
 	}
 	return false
 }
