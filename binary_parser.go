@@ -85,6 +85,10 @@ func (bp *binaryParser) parseObjectRef(index uint64) (val *plistValue, err error
 			err = err2
 		}
 	}()
+
+	if index > uint64(len(bp.OffsetTable)) {
+		return nil, fmt.Errorf("plist: offset too large: %d", index)
+	}
 	// Move to the start of the object we want to decode.
 	if _, err := bp.Seek(int64(bp.OffsetTable[index]), io.SeekStart); err != nil {
 		return nil, err

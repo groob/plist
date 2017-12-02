@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -312,7 +313,6 @@ func TestDecodePointer(t *testing.T) {
 	}
 }
 
-
 func TestDecodeBinaryPlist(t *testing.T) {
 	var sample struct {
 		Ints     []int64   `plist:"ints"`
@@ -403,4 +403,21 @@ func TestUnmarshaler(t *testing.T) {
 	if have, want := u.MustDecode, "bar"; have != want {
 		t.Errorf("have %s, want %s", have, want)
 	}
+}
+
+func TestFuzzCrashers(t *testing.T) {
+	infos, err := ioutil.ReadDir("testdata/crashers")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, info := range infos {
+		crasher, err := ioutil.ReadFile(filepath.Join("testdata", "crashers", info.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var i interface{}
+		Unmarshal(crasher, &i)
+	}
+
 }
