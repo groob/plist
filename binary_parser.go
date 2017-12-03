@@ -28,6 +28,18 @@ type binaryParser struct {
 	io.ReadSeeker          // reader for plist data
 }
 
+// safeUint64Slice returns a slice of uint64.  If the desired size of the slice
+// is too large to fit in memory, it returns an error rather than panicking.
+func safeUint64Slice(size uint64) (slice []uint64, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slice = nil
+			err = r.(error)
+		}
+	}()
+	return make([]uint64, size), nil
+}
+
 // newBinaryParser takes in a ReadSeeker for the bytes of a binary plist and
 // returns a parser after reading the offset table and trailer.
 func newBinaryParser(r io.ReadSeeker) (*binaryParser, error) {
@@ -46,7 +58,10 @@ func newBinaryParser(r io.ReadSeeker) (*binaryParser, error) {
 	if _, err := bp.Seek(int64(bp.OffsetTableOffset), io.SeekStart); err != nil {
 		return nil, fmt.Errorf("plist: couldn't seek to start of offset table: %v", err)
 	}
-	bp.OffsetTable = make([]uint64, bp.NumObjects)
+	var err error
+	if bp.OffsetTable, err = safeUint64Slice(bp.NumObjects); err != nil {
+		return nil, err
+	}
 	if bp.OffsetIntSize > 8 {
 		return nil, fmt.Errorf("plist: can't decode when offset int size (%d) is greater than 8", bp.OffsetIntSize)
 	}
@@ -300,6 +315,10 @@ func (bp *binaryParser) readCount(marker byte) (uint64, error) {
 	//   2 means 4 bytes (first byte + 3)
 	//   3 means 8 bytes (first byte + 7)
 	nbytes := 1 << (first >> 4)
+	// Number of bytes in count should be at most 8.
+	if nbytes > 8 {
+		return 0, fmt.Errorf("plist: invalid nbytes (%d) in readCount", nbytes)
+	}
 	buf := make([]byte, 8)
 	// Shove these bytes into the low end of an 8-byte buffer.
 	buf[8-nbytes] = first & 0xf
