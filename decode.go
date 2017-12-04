@@ -87,8 +87,11 @@ func (d *Decoder) Decode(v interface{}) error {
 func (d *Decoder) unmarshal(pval *plistValue, v reflect.Value) error {
 	// check for empty interface v type
 	if v.Kind() == reflect.Interface && v.NumMethod() == 0 {
-		val := d.valueInterface(pval)
-		v.Set(reflect.ValueOf(val))
+		val := reflect.ValueOf(d.valueInterface(pval))
+		if !val.IsValid() {
+			return fmt.Errorf("plist: invalid reflect.Value %v", v)
+		}
+		v.Set(val)
 		return nil
 	}
 
