@@ -14,7 +14,7 @@ func someHTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
     // decode an HTTP request body into the sparseBundleHeader struct
-	if err := plist.NewDecoder(r.Body).Decode(&sparseBundleHeader); err != nil {
+	if err := plist.NewXMLDecoder(r.Body).Decode(&sparseBundleHeader); err != nil {
 		log.Println(err)
         return
 	}
