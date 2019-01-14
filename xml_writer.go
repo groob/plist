@@ -211,8 +211,14 @@ func (e *xmlEncoder) writeStringValue(pval *plistValue) error {
 }
 
 func (e *xmlEncoder) writeBoolValue(pval *plistValue) error {
+	// EncodeElement results in <true></true> instead of <true/>
+	// use writer to write self closing tags
 	b := pval.value.(bool)
-	return e.EncodeElement("", xml.StartElement{Name: xml.Name{Local: fmt.Sprintf("%t", b)}})
+	_, err := e.writer.Write([]byte(fmt.Sprintf("<%t/>", b)))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *xmlEncoder) writeIntegerValue(pval *plistValue) error {

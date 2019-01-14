@@ -38,17 +38,17 @@ var realRef = `<?xml version="1.0" encoding="UTF-8"?>
 
 var falseRef = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><false></false></plist>
+<plist version="1.0"><false/></plist>
 `
 
 var trueRef = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><true></true></plist>
+<plist version="1.0"><true/></plist>
 `
 
 var arrRef = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><array><string>a</string><string>b</string><string>c</string><integer>4</integer><true></true></array></plist>
+<plist version="1.0"><array><string>a</string><string>b</string><string>c</string><integer>4</integer><true/></array></plist>
 `
 
 var byteArrRef = `<?xml version="1.0" encoding="UTF-8"?>
@@ -73,7 +73,7 @@ var emptyDataRef = `<?xml version="1.0" encoding="UTF-8"?>
 
 var dictRef = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict><key>bool</key><true></true><key>foo</key><string>bar</string></dict></plist>
+<plist version="1.0"><dict><key>bool</key><true/><key>foo</key><string>bar</string></dict></plist>
 `
 
 var indentRef = `<?xml version="1.0" encoding="UTF-8"?>
@@ -150,6 +150,7 @@ var encodeTests = []struct {
 }
 
 func TestEncodeValues(t *testing.T) {
+	t.Parallel()
 	for _, tt := range encodeTests {
 		b, err := Marshal(tt.in)
 		if err != nil {
@@ -164,6 +165,7 @@ func TestEncodeValues(t *testing.T) {
 }
 
 func TestNewLineString(t *testing.T) {
+	t.Parallel()
 	multiline := struct {
 		Content string
 	}{
@@ -192,12 +194,13 @@ bar</string>
 }
 
 func TestIndent(t *testing.T) {
+	t.Parallel()
 	sparseBundleHeader := struct {
-		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
-		BandSize              uint64 `plist:"band-size"`
-		BackingStoreVersion   int    `plist:"bundle-backingstore-version"`
-		DiskImageBundleType   string `plist:"diskimage-bundle-type"`
-		Size                  uint64 `plist:"size"`
+		InfoDictionaryVersion string     `plist:"CFBundleInfoDictionaryVersion"`
+		BandSize              uint64     `plist:"band-size"`
+		BackingStoreVersion   int        `plist:"bundle-backingstore-version"`
+		DiskImageBundleType   string     `plist:"diskimage-bundle-type"`
+		Size                  uint64     `plist:"size"`
 		Unused                testStruct `plist:"useless"`
 	}{
 		InfoDictionaryVersion: "6.0",
@@ -218,6 +221,7 @@ func TestIndent(t *testing.T) {
 }
 
 func TestOmitNotEmpty(t *testing.T) {
+	t.Parallel()
 	sparseBundleHeader := struct {
 		InfoDictionaryVersion string     `plist:"CFBundleInfoDictionaryVersion"`
 		BandSize              uint64     `plist:"band-size,omitempty"`
@@ -244,6 +248,7 @@ func TestOmitNotEmpty(t *testing.T) {
 }
 
 func TestOmitIsEmpty(t *testing.T) {
+	t.Parallel()
 	sparseBundleHeader := struct {
 		InfoDictionaryVersion string     `plist:"CFBundleInfoDictionaryVersion"`
 		BandSize              uint64     `plist:"band-size,omitempty"`
@@ -278,6 +283,7 @@ func (m *marshalerTest) MarshalPlist() (interface{}, error) {
 }
 
 func TestMarshaler(t *testing.T) {
+	t.Parallel()
 	want := []byte(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><string>pants</string></plist>
@@ -291,4 +297,31 @@ func TestMarshaler(t *testing.T) {
 	if !bytes.Equal(have, want) {
 		t.Errorf("expected \n%s got \n%s\n", have, want)
 	}
+}
+
+func TestSelfClosting(t *testing.T) {
+	t.Parallel()
+	selfClosing := struct {
+		True   bool
+		False  bool
+		Absent bool
+	}{
+		True:  true,
+		False: false,
+	}
+
+	want := []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>Absent</key><false/><key>False</key><false/><key>True</key><true/></dict></plist>
+`)
+
+	have, err := Marshal(selfClosing)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(have, want) {
+		t.Errorf("expected \n%s got \n%s\n", have, want)
+	}
+
 }
