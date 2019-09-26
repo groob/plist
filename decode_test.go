@@ -316,21 +316,24 @@ func TestDecodePointer(t *testing.T) {
 func TestDecodeBinaryPlist(t *testing.T) {
 	var sample struct {
 		Ints     []int64   `plist:"ints"`
+		Signed   int64     `plist:"signed"`
 		Unsigned uint64    `plist:"unsigned"`
+		Uint64   uint64    `plist:"uint64"`
 		Reals    []float64 `plist:"reals"`
 		Date     time.Time `plist:"date"`
 		Strings  []string  `plist:"strings"`
-		Data     []byte    `plist:"data"`
+		Data     [][]byte  `plist:"data"`
 	}
-	content, err := ioutil.ReadFile("sample.binary.plist")
+	filepath := filepath.Join("testdata", "sample.binary.plist")
+	content, err := ioutil.ReadFile(filepath)
 	if err != nil {
-		t.Error("couldn't read sample.binary.plist: ", err)
+		t.Errorf("couldn't read %s: %v", filepath, err)
 	}
 	if err := Unmarshal(content, &sample); err != nil {
 		t.Error("couldn't unmarshal binary plist:", err)
 	}
 
-	expectedInts := []int64{0, 42, -42, -123456, -9223372036854775807, 9223372036854775807}
+	expectedInts := []int64{0, 42, -42, 255, -255, -123456, -9223372036854775807, 9223372036854775807}
 	if len(expectedInts) != len(sample.Ints) {
 		t.Errorf("expected %d ints, but only decoded %d ints", len(expectedInts), len(sample.Ints))
 	}
@@ -340,9 +343,19 @@ func TestDecodeBinaryPlist(t *testing.T) {
 		}
 	}
 
-	expectedUnsigned := uint64(18446744073709551615)
+	expectedUnsigned := uint64(1<<63 - 1)
 	if sample.Unsigned != expectedUnsigned {
 		t.Error("expected", expectedUnsigned, "got", sample.Unsigned)
+	}
+
+	expectedSigned := int64(-1)
+	if sample.Signed != expectedSigned {
+		t.Error("expected", expectedSigned, "got", sample.Signed)
+	}
+
+	expectedUint64 := ^uint64(0) // all bits set
+	if sample.Uint64 != expectedUint64 {
+		t.Error("expected", expectedUint64, "got", sample.Uint64)
 	}
 
 	expectedReals := []float64{0.0, 3.14159, -1234.5678}
@@ -360,7 +373,12 @@ func TestDecodeBinaryPlist(t *testing.T) {
 		t.Error("expected", expectedDate, "got", sample.Date)
 	}
 
-	expectedStrings := []string{"short", "こんにちは世界", "this is a much longer string having more than 14 characters"}
+	expectedStrings := []string{
+		"short",
+		"こんにちは世界",
+		"this is a much longer string having more than 14 characters",
+		"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+	}
 	if len(expectedStrings) != len(sample.Strings) {
 		t.Errorf("expected %d strings, but only decoded %d strings", len(expectedStrings), len(sample.Strings))
 	}
@@ -370,10 +388,26 @@ func TestDecodeBinaryPlist(t *testing.T) {
 		}
 	}
 
-	expectedData, _ := base64.StdEncoding.DecodeString("PEKBpYGlmYFCPA==")
-	if bytes.Compare(sample.Data, expectedData) != 0 {
-		t.Errorf("got %v expected %v", sample.Data, expectedData)
+	expectedData := [][]byte{
+		MustDecodeBase64("PEKBpYGlmYFCPA=="),
+		MustDecodeBase64("TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2NpbmcgZWxpdCwgc2VkIGRvIGVpdXNtb2QgdGVtcG9yIGluY2lkaWR1bnQgdXQgbGFib3JlIGV0IGRvbG9yZSBtYWduYSBhbGlxdWEuIFV0IGVuaW0gYWQgbWluaW0gdmVuaWFtLCBxdWlzIG5vc3RydWQgZXhlcmNpdGF0aW9uIHVsbGFtY28gbGFib3JpcyBuaXNpIHV0IGFsaXF1aXAgZXggZWEgY29tbW9kbyBjb25zZXF1YXQuIER1aXMgYXV0ZSBpcnVyZSBkb2xvciBpbiByZXByZWhlbmRlcml0IGluIHZvbHVwdGF0ZSB2ZWxpdCBlc3NlIGNpbGx1bSBkb2xvcmUgZXUgZnVnaWF0IG51bGxhIHBhcmlhdHVyLiBFeGNlcHRldXIgc2ludCBvY2NhZWNhdCBjdXBpZGF0YXQgbm9uIHByb2lkZW50LCBzdW50IGluIGN1bHBhIHF1aSBvZmZpY2lhIGRlc2VydW50IG1vbGxpdCBhbmltIGlkIGVzdCBsYWJvcnVtLg=="),
 	}
+	if len(expectedData) != len(sample.Data) {
+		t.Errorf("expected %d data items, but only decoded %d", len(expectedData), len(sample.Data))
+	}
+	for i, x := range expectedData {
+		if !bytes.Equal(sample.Data[i], x) {
+			t.Error("expected", x, "got", sample.Data[i])
+		}
+	}
+}
+
+func MustDecodeBase64(b64 string) []byte {
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
 
 type unmarshalerTest struct {
