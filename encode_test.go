@@ -115,6 +115,25 @@ var indentRefOmit = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 `
 
+var boolRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>Absent</key><false/><key>False</key><false/><key>True</key><true/></dict></plist>
+`
+
+var boolIndentRef = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+   <dict>
+      <key>Absent</key>
+      <false/>
+      <key>False</key>
+      <false/>
+      <key>True</key>
+      <true/>
+   </dict>
+</plist>
+`
+
 type testStruct struct {
 	UnusedString string `plist:"unused-string"`
 }
@@ -300,28 +319,61 @@ func TestMarshaler(t *testing.T) {
 }
 
 func TestSelfClosing(t *testing.T) {
-	t.Parallel()
+	tests := []struct {
+		description string
+		marshalFunc func(interface{}) ([]byte, error)
+		want        string
+	}{
+		{
+			description: "without indent",
+			marshalFunc: func(in interface{}) ([]byte, error) {
+				return Marshal(in)
+			},
+			want: boolRef,
+		},
+		{
+			description: "indent",
+			marshalFunc: func(in interface{}) ([]byte, error) {
+				return MarshalIndent(in, "   ")
+			},
+			want: boolIndentRef,
+		},
+	}
+
+	type AA struct {
+		AA       bool
+		Multiple []bool
+		Strings  []string
+	}
+	type Foo struct {
+		A  bool
+		B  bool
+		AA AA
+	}
+
 	selfClosing := struct {
 		True   bool
 		False  bool
 		Absent bool
+		Foo    Foo
 	}{
 		True:  true,
 		False: false,
+		Foo:   Foo{AA: AA{Strings: []string{"A", "b"}, Multiple: []bool{false, true, true}}},
 	}
 
-	want := []byte(`<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict><key>Absent</key><false/><key>False</key><false/><key>True</key><true/></dict></plist>
-`)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.description, func(t *testing.T) {
+			t.Parallel()
+			got, err := tt.marshalFunc(selfClosing)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	have, err := Marshal(selfClosing)
-	if err != nil {
-		t.Fatal(err)
+			if string(got) != tt.want {
+				t.Errorf("got\n%s\n, want\n%s\n", got, tt.want)
+			}
+		})
 	}
-
-	if !bytes.Equal(have, want) {
-		t.Errorf("expected \n%s got \n%s\n", have, want)
-	}
-
 }

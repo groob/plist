@@ -51,6 +51,9 @@ func (e *Encoder) Encode(v interface{}) error {
 	}
 
 	enc := newXMLEncoder(e.w)
+
+	// this indent value is for xmlEncoder to track and write booleans. It's a hack
+	enc.indent = e.indent
 	enc.Indent("", e.indent)
 	return enc.generateDocument(pval)
 }

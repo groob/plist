@@ -14,11 +14,14 @@ const xmlDOCTYPE = `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http:/
 
 type xmlEncoder struct {
 	writer io.Writer
+	indent string
 	*xml.Encoder
+	depth        int
+	writeNewline bool
 }
 
 func newXMLEncoder(w io.Writer) *xmlEncoder {
-	return &xmlEncoder{w, xml.NewEncoder(w)}
+	return &xmlEncoder{writer: w, Encoder: xml.NewEncoder(w)}
 }
 
 func (e *xmlEncoder) generateDocument(pval *plistValue) error {
@@ -60,6 +63,7 @@ func (e *xmlEncoder) generateDocument(pval *plistValue) error {
 }
 
 func (e *xmlEncoder) writePlistValue(pval *plistValue) error {
+	e.depth++
 	switch pval.kind {
 	case String:
 		return e.writeStringValue(pval)
@@ -139,6 +143,11 @@ func (e *xmlEncoder) writeElement(name string, pval *plistValue, valFunc func(*p
 		return err
 	}
 
+	// drop the indent level after array or dictionary tag is closed.
+	if name == "dict" || name == "array" {
+		e.depth--
+	}
+
 	// flush
 	return e.Flush()
 }
@@ -151,6 +160,16 @@ func (e *xmlEncoder) writeArrayValue(pval *plistValue) error {
 			if err := e.writePlistValue(v); err != nil {
 				return err
 			}
+		}
+		// if the values of the array are self closing booleans, we have to write a newline + indent
+		// and then decrement depth by 2. 1 for the bool and one for the array key itself.
+		if e.writeNewline {
+			e.writer.Write([]byte("\n"))
+			for i := 0; i < e.depth; i++ {
+				e.writer.Write([]byte(e.indent))
+			}
+			e.depth -= 2
+			e.writeNewline = false
 		}
 		return nil
 	}
@@ -211,14 +230,20 @@ func (e *xmlEncoder) writeStringValue(pval *plistValue) error {
 }
 
 func (e *xmlEncoder) writeBoolValue(pval *plistValue) error {
-	// EncodeElement results in <true></true> instead of <true/>
-	// use writer to write self closing tags
-	b := pval.value.(bool)
-	_, err := e.writer.Write([]byte(fmt.Sprintf("<%t/>", b)))
-	if err != nil {
-		return err
+	e.writeNewline = true
+	boolVal := pval.value.(bool)
+	var err error
+	if e.indent != "" {
+		e.writer.Write([]byte("\n"))
+		for i := 0; i < e.depth; i++ {
+			e.writer.Write([]byte(e.indent))
+		}
+		e.depth--
+		_, err = e.writer.Write([]byte(fmt.Sprintf("<%t/>", boolVal)))
+	} else {
+		_, err = e.writer.Write([]byte(fmt.Sprintf("<%t/>", boolVal)))
 	}
-	return nil
+	return err
 }
 
 func (e *xmlEncoder) writeIntegerValue(pval *plistValue) error {
