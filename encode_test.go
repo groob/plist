@@ -258,9 +258,9 @@ func TestOmitIsEmpty(t *testing.T) {
 		Unused                testStruct `plist:"useless,omitempty"`
 	}{
 		InfoDictionaryVersion: "6.0",
-		Size:                4 * 1048576 * 1024 * 1024,
-		DiskImageBundleType: "com.apple.diskimage.sparsebundle",
-		BackingStoreVersion: 1,
+		Size:                  4 * 1048576 * 1024 * 1024,
+		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
+		BackingStoreVersion:   1,
 	}
 	b, err := MarshalIndent(sparseBundleHeader, "   ")
 	if err != nil {
@@ -299,7 +299,7 @@ func TestMarshaler(t *testing.T) {
 	}
 }
 
-func TestSelfClosting(t *testing.T) {
+func TestSelfClosing(t *testing.T) {
 	t.Parallel()
 	selfClosing := struct {
 		True   bool
