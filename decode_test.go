@@ -322,7 +322,7 @@ func TestDecodeBinaryPlist(t *testing.T) {
 		Strings  []string  `plist:"strings"`
 		Data     []byte    `plist:"data"`
 	}
-	content, err := ioutil.ReadFile("sample.binary.plist")
+	content, err := ioutil.ReadFile(filepath.Join("testdata", "sample.binary.plist"))
 	if err != nil {
 		t.Error("couldn't read sample.binary.plist: ", err)
 	}
