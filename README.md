@@ -1,4 +1,5 @@
 # OS X XML Plist library for Go
+![Go](https://github.com/groob/plist/workflows/Go/badge.svg)
 
 The plist library is used for decoding and encoding XML Plists, usually from HTTP streams.
 
