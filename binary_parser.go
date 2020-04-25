@@ -28,17 +28,7 @@ type binaryParser struct {
 	io.ReadSeeker          // reader for plist data
 }
 
-// safeUint64Slice returns a slice of uint64.  If the desired size of the slice
-// is too large to fit in memory, it returns an error rather than panicking.
-func safeUint64Slice(size uint64) (slice []uint64, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			slice = nil
-			err = r.(error)
-		}
-	}()
-	return make([]uint64, size), nil
-}
+const numObjectsMax = 4 << 20
 
 // newBinaryParser takes in a ReadSeeker for the bytes of a binary plist and
 // returns a parser after reading the offset table and trailer.
@@ -58,10 +48,14 @@ func newBinaryParser(r io.ReadSeeker) (*binaryParser, error) {
 	if _, err := bp.Seek(int64(bp.OffsetTableOffset), io.SeekStart); err != nil {
 		return nil, fmt.Errorf("plist: couldn't seek to start of offset table: %v", err)
 	}
-	var err error
-	if bp.OffsetTable, err = safeUint64Slice(bp.NumObjects); err != nil {
-		return nil, err
+
+	// numObjectsMax is arbitrary. Please fix.
+	// TODO(github.com/groob/plist/issues/28)
+	if bp.NumObjects > numObjectsMax {
+		return nil, fmt.Errorf("plist: offset size larger than expected %d", numObjectsMax)
 	}
+
+	bp.OffsetTable = make([]uint64, bp.NumObjects)
 	if bp.OffsetIntSize > 8 {
 		return nil, fmt.Errorf("plist: can't decode when offset int size (%d) is greater than 8", bp.OffsetIntSize)
 	}

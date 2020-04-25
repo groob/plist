@@ -456,18 +456,24 @@ func TestUnmarshaler(t *testing.T) {
 }
 
 func TestFuzzCrashers(t *testing.T) {
-	infos, err := ioutil.ReadDir("testdata/crashers")
+	dir := filepath.Join("testdata", "crashers")
+	testDir, err := ioutil.ReadDir(dir)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("reading dir %q: %s", dir, err)
 	}
 
-	for _, info := range infos {
-		crasher, err := ioutil.ReadFile(filepath.Join("testdata", "crashers", info.Name()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var i interface{}
-		Unmarshal(crasher, &i)
-	}
+	for _, tc := range testDir {
+		tc := tc
+		t.Run(tc.Name(), func(t *testing.T) {
+			t.Parallel()
 
+			crasher, err := ioutil.ReadFile(filepath.Join("testdata", "crashers", tc.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var i interface{}
+			Unmarshal(crasher, &i)
+		})
+	}
 }
