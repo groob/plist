@@ -314,91 +314,107 @@ func TestDecodePointer(t *testing.T) {
 }
 
 func TestDecodeBinaryPlist(t *testing.T) {
-	var sample struct {
-		Ints     []int64   `plist:"ints"`
-		Signed   int64     `plist:"signed"`
-		Unsigned uint64    `plist:"unsigned"`
-		Uint64   uint64    `plist:"uint64"`
-		Reals    []float64 `plist:"reals"`
-		Date     time.Time `plist:"date"`
-		Strings  []string  `plist:"strings"`
-		Data     [][]byte  `plist:"data"`
-	}
-	fp := filepath.Join("testdata", "sample.binary.plist")
-	content, err := ioutil.ReadFile(fp)
-	if err != nil {
-		t.Errorf("couldn't read %s: %v", fp, err)
-	}
-	if err := Unmarshal(content, &sample); err != nil {
-		t.Error("couldn't unmarshal binary plist:", err)
+	tests := []struct {
+		filename     string
+		expectedInts []int64
+	}{
+		{
+			filename:     "sample2.binary.plist",
+			expectedInts: []int64{0, 42, -42, 255, -255, -123456, -9223372036854775807, 9223372036854775807},
+		},
 	}
 
-	expectedInts := []int64{0, 42, -42, 255, -255, -123456, -9223372036854775807, 9223372036854775807}
-	if len(expectedInts) != len(sample.Ints) {
-		t.Errorf("expected %d ints, but only decoded %d ints", len(expectedInts), len(sample.Ints))
-	}
-	for i, x := range expectedInts {
-		if sample.Ints[i] != x {
-			t.Error("expected", x, "got", sample.Ints[i])
-		}
-	}
+	for _, tt := range tests {
+		t.Run(tt.filename, func(t *testing.T) {
+			var sample struct {
+				Ints     []int64   `plist:"ints"`
+				Signed   int64     `plist:"signed"`
+				Unsigned uint64    `plist:"unsigned"`
+				Uint64   uint64    `plist:"uint64"`
+				Reals    []float64 `plist:"reals"`
+				Date     time.Time `plist:"date"`
+				Strings  []string  `plist:"strings"`
+				Data     [][]byte  `plist:"data"`
+			}
 
-	expectedUnsigned := uint64(1<<63 - 1)
-	if sample.Unsigned != expectedUnsigned {
-		t.Error("expected", expectedUnsigned, "got", sample.Unsigned)
-	}
+			content, err := ioutil.ReadFile(filepath.Join("testdata", tt.filename))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	expectedSigned := int64(-1)
-	if sample.Signed != expectedSigned {
-		t.Error("expected", expectedSigned, "got", sample.Signed)
-	}
+			if err := Unmarshal(content, &sample); err != nil {
+				t.Fatal(err)
+			}
 
-	expectedUint64 := ^uint64(0) // all bits set
-	if sample.Uint64 != expectedUint64 {
-		t.Error("expected", expectedUint64, "got", sample.Uint64)
-	}
+			if got, want := len(sample.Ints), len(tt.expectedInts); got != want {
+				t.Errorf("decoded %d ints, want %d", got, want)
+			}
 
-	expectedReals := []float64{0.0, 3.14159, -1234.5678}
-	if len(expectedReals) != len(sample.Reals) {
-		t.Errorf("expected %d reals, but only decoded %d reals", len(expectedReals), len(sample.Reals))
-	}
-	for i, x := range expectedReals {
-		if sample.Reals[i] != x {
-			t.Error("expected", x, "got", sample.Reals[i])
-		}
-	}
+			for i, x := range tt.expectedInts {
+				if sample.Ints[i] != x {
+					t.Error("expected", x, "got", sample.Ints[i])
+				}
+			}
 
-	expectedDate, _ := time.Parse(time.RFC3339, "2038-01-19T03:14:08Z")
-	if !sample.Date.Equal(expectedDate) {
-		t.Error("expected", expectedDate, "got", sample.Date)
-	}
+			expectedUnsigned := uint64(1<<63 - 1)
+			if sample.Unsigned != expectedUnsigned {
+				t.Error("expected", expectedUnsigned, "got", sample.Unsigned)
+			}
 
-	expectedStrings := []string{
-		"short",
-		"こんにちは世界",
-		"this is a much longer string having more than 14 characters",
-		"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-	}
-	if len(expectedStrings) != len(sample.Strings) {
-		t.Errorf("expected %d strings, but only decoded %d strings", len(expectedStrings), len(sample.Strings))
-	}
-	for i, x := range expectedStrings {
-		if sample.Strings[i] != x {
-			t.Error("expected", x, "got", sample.Strings[i])
-		}
-	}
+			expectedSigned := int64(-1)
+			if sample.Signed != expectedSigned {
+				t.Error("expected", expectedSigned, "got", sample.Signed)
+			}
 
-	expectedData := [][]byte{
-		MustDecodeBase64("PEKBpYGlmYFCPA=="),
-		MustDecodeBase64("TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2NpbmcgZWxpdCwgc2VkIGRvIGVpdXNtb2QgdGVtcG9yIGluY2lkaWR1bnQgdXQgbGFib3JlIGV0IGRvbG9yZSBtYWduYSBhbGlxdWEuIFV0IGVuaW0gYWQgbWluaW0gdmVuaWFtLCBxdWlzIG5vc3RydWQgZXhlcmNpdGF0aW9uIHVsbGFtY28gbGFib3JpcyBuaXNpIHV0IGFsaXF1aXAgZXggZWEgY29tbW9kbyBjb25zZXF1YXQuIER1aXMgYXV0ZSBpcnVyZSBkb2xvciBpbiByZXByZWhlbmRlcml0IGluIHZvbHVwdGF0ZSB2ZWxpdCBlc3NlIGNpbGx1bSBkb2xvcmUgZXUgZnVnaWF0IG51bGxhIHBhcmlhdHVyLiBFeGNlcHRldXIgc2ludCBvY2NhZWNhdCBjdXBpZGF0YXQgbm9uIHByb2lkZW50LCBzdW50IGluIGN1bHBhIHF1aSBvZmZpY2lhIGRlc2VydW50IG1vbGxpdCBhbmltIGlkIGVzdCBsYWJvcnVtLg=="),
-	}
-	if len(expectedData) != len(sample.Data) {
-		t.Errorf("expected %d data items, but only decoded %d", len(expectedData), len(sample.Data))
-	}
-	for i, x := range expectedData {
-		if !bytes.Equal(sample.Data[i], x) {
-			t.Error("expected", x, "got", sample.Data[i])
-		}
+			expectedUint64 := ^uint64(0) // all bits set
+			if sample.Uint64 != expectedUint64 {
+				t.Error("expected", expectedUint64, "got", sample.Uint64)
+			}
+
+			expectedReals := []float64{0.0, 3.14159, -1234.5678}
+			if len(expectedReals) != len(sample.Reals) {
+				t.Errorf("expected %d reals, but only decoded %d reals", len(expectedReals), len(sample.Reals))
+			}
+
+			for i, x := range expectedReals {
+				if sample.Reals[i] != x {
+					t.Error("expected", x, "got", sample.Reals[i])
+				}
+			}
+
+			expectedDate, _ := time.Parse(time.RFC3339, "2038-01-19T03:14:08Z")
+			if !sample.Date.Equal(expectedDate) {
+				t.Error("expected", expectedDate, "got", sample.Date)
+			}
+
+			expectedStrings := []string{
+				"short",
+				"こんにちは世界",
+				"this is a much longer string having more than 14 characters",
+				"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			}
+			if len(expectedStrings) != len(sample.Strings) {
+				t.Errorf("expected %d strings, but only decoded %d strings", len(expectedStrings), len(sample.Strings))
+			}
+			for i, x := range expectedStrings {
+				if sample.Strings[i] != x {
+					t.Error("expected", x, "got", sample.Strings[i])
+				}
+			}
+
+			expectedData := [][]byte{
+				MustDecodeBase64("PEKBpYGlmYFCPA=="),
+				MustDecodeBase64("TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2NpbmcgZWxpdCwgc2VkIGRvIGVpdXNtb2QgdGVtcG9yIGluY2lkaWR1bnQgdXQgbGFib3JlIGV0IGRvbG9yZSBtYWduYSBhbGlxdWEuIFV0IGVuaW0gYWQgbWluaW0gdmVuaWFtLCBxdWlzIG5vc3RydWQgZXhlcmNpdGF0aW9uIHVsbGFtY28gbGFib3JpcyBuaXNpIHV0IGFsaXF1aXAgZXggZWEgY29tbW9kbyBjb25zZXF1YXQuIER1aXMgYXV0ZSBpcnVyZSBkb2xvciBpbiByZXByZWhlbmRlcml0IGluIHZvbHVwdGF0ZSB2ZWxpdCBlc3NlIGNpbGx1bSBkb2xvcmUgZXUgZnVnaWF0IG51bGxhIHBhcmlhdHVyLiBFeGNlcHRldXIgc2ludCBvY2NhZWNhdCBjdXBpZGF0YXQgbm9uIHByb2lkZW50LCBzdW50IGluIGN1bHBhIHF1aSBvZmZpY2lhIGRlc2VydW50IG1vbGxpdCBhbmltIGlkIGVzdCBsYWJvcnVtLg=="),
+			}
+			if len(expectedData) != len(sample.Data) {
+				t.Errorf("expected %d data items, but only decoded %d", len(expectedData), len(sample.Data))
+			}
+			for i, x := range expectedData {
+				if !bytes.Equal(sample.Data[i], x) {
+					t.Error("expected", x, "got", sample.Data[i])
+				}
+			}
+		})
 	}
 }
 
