@@ -477,3 +477,20 @@ func TestFuzzCrashers(t *testing.T) {
 		})
 	}
 }
+
+func TestSmallInput(t *testing.T) {
+	type nop struct{}
+	nopStruct := &nop{}
+	for _, test := range []string{
+		"",
+		"!",
+		"<?xml",
+		"bplist0",
+	} {
+		err := Unmarshal([]byte(test), nopStruct)
+		if err == nil {
+			t.Errorf("should have produced error with input: %q", test)
+		}
+	}
+
+}
