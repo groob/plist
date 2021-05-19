@@ -32,10 +32,51 @@ type Decoder struct {
 	isBinary bool      // true if this is a binary plist
 }
 
-// NewDecoder returns a new XML plist decoder.
-// DEPRECATED: Please use NewXMLDecoder instead.
+// NewAutoDecoder returns a new decoder, detecting whether the format is XML
+// or binary.
+func NewAutoDecoder(r io.Reader) (*Decoder, error) {
+	var magic []byte
+	if rs, ok := r.(io.ReadSeeker); ok {
+		magic = make([]byte, 5)
+		if _, err := r.Read(magic); err != nil {
+			return nil, err
+		}
+		if _, err := rs.Seek(0, io.SeekStart); err != nil {
+			return nil, err
+		}
+	} else {
+		// Use buffered IO
+		br := bufio.NewReader(r)
+		var err error
+		magic, err = br.Peek(5)
+		if err != nil {
+			return nil, err
+		}
+		r = br
+	}
+	// Detect if it XML or Binary
+	switch string(magic) {
+	case "<?xml":
+		return NewXMLDecoder(r), nil
+	case "bplis":
+		rs, ok := r.(io.ReadSeeker)
+		if !ok {
+			return nil, errors.New("plist: binary plist decoder requires an io.ReadSeeker")
+		}
+		return NewBinaryDecoder(rs), nil
+	}
+	return nil, errors.New("plist: unknown plist format")
+}
+
+// NewDecoder returns a new plist decoder, auto-detecting the format, and
+// panicing on error.
+// DEPRECATED: Please use NewAutoDecoder instead.
 func NewDecoder(r io.Reader) *Decoder {
-	return NewXMLDecoder(r)
+	d, err := NewAutoDecoder(r)
+	if err != nil {
+		panic(err)
+	}
+	return d
 }
 
 // NewXMLDecoder returns a new decoder that reads an XML plist from r.
