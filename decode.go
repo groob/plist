@@ -19,7 +19,7 @@ type Unmarshaler interface {
 // Unmarshal parses the plist-encoded data and stores the result in the value pointed to by v.
 func Unmarshal(data []byte, v interface{}) error {
 	// Check for binary plist here before setting up the decoder.
-	if string(data[:7]) == "bplist0" {
+	if bytes.HasPrefix(data, []byte("bplist0")) {
 		return NewBinaryDecoder(bytes.NewReader(data)).Decode(v)
 	}
 	return NewXMLDecoder(bytes.NewReader(data)).Decode(v)
