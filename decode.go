@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -16,6 +17,10 @@ type Unmarshaler interface {
 	UnmarshalPlist(f func(interface{}) error) error
 }
 
+// UnmarshalUnknownFunc is a callback used to unmarshal custom plist types,
+// where the user cannot directly add the associated interface to the type.
+type UnmarshalUnknownFunc func(plistValue interface{}, marshalType reflect.Type) (unmarshaledValue interface{}, ok bool, err error)
+
 // Unmarshal parses the plist-encoded data and stores the result in the value pointed to by v.
 func Unmarshal(data []byte, v interface{}) error {
 	// Check for binary plist here before setting up the decoder.
@@ -30,6 +35,11 @@ func Unmarshal(data []byte, v interface{}) error {
 type Decoder struct {
 	reader   io.Reader // binary decoders assert this to io.ReadSeeker
 	isBinary bool      // true if this is a binary plist
+
+	// When a type is unknown during unmarshaling, we call this function when
+	// non-nil, to provide the unmarshaled value.  The callback can indicate
+	// that the value cannot be unmarshaled, in which case it is skipped.
+	OnUnmarshalUnsupported UnmarshalUnknownFunc
 }
 
 // NewDecoder returns a new XML plist decoder.
@@ -156,9 +166,29 @@ func (d *Decoder) unmarshal(pval *plistValue, v reflect.Value) error {
 	}
 }
 
+func (d *Decoder) handleUnsupportedType(pval *plistValue, v reflect.Value) error {
+	if d.OnUnmarshalUnsupported != nil {
+		umv, ok, err := d.OnUnmarshalUnsupported(pval.value, v.Type())
+		if err != nil {
+			return err
+		}
+		if ok {
+			umvValue := reflect.ValueOf(umv)
+			if umvValue.Type().Kind() == reflect.Ptr {
+				// We've already dereferenced pointer types, so do
+				// it for the unmarshaled value we assign.
+				umvValue = umvValue.Elem()
+			}
+			v.Set(umvValue)
+		}
+		return nil
+	}
+	return UnmarshalTypeError{fmt.Sprintf("%v", pval.value), v.Type()}
+}
+
 func (d *Decoder) unmarshalDate(pval *plistValue, v reflect.Value) error {
 	if v.Type() != reflect.TypeOf((*time.Time)(nil)).Elem() {
-		return UnmarshalTypeError{fmt.Sprintf("%v", pval.value), v.Type()}
+		return d.handleUnsupportedType(pval, v)
 	}
 	v.Set(reflect.ValueOf(pval.value.(time.Time)))
 	return nil
@@ -166,7 +196,7 @@ func (d *Decoder) unmarshalDate(pval *plistValue, v reflect.Value) error {
 
 func (d *Decoder) unmarshalData(pval *plistValue, v reflect.Value) error {
 	if v.Kind() != reflect.Slice || v.Type().Elem().Kind() != reflect.Uint8 {
-		return UnmarshalTypeError{fmt.Sprintf("%s", pval.value.([]byte)), v.Type()}
+		return d.handleUnsupportedType(pval, v)
 	}
 	v.SetBytes(pval.value.([]byte))
 	return nil
@@ -174,7 +204,7 @@ func (d *Decoder) unmarshalData(pval *plistValue, v reflect.Value) error {
 
 func (d *Decoder) unmarshalReal(pval *plistValue, v reflect.Value) error {
 	if v.Kind() != reflect.Float32 && v.Kind() != reflect.Float64 {
-		return UnmarshalTypeError{fmt.Sprintf("%v", pval.value.(sizedFloat).value), v.Type()}
+		return d.handleUnsupportedType(pval, v)
 	}
 	v.SetFloat(pval.value.(sizedFloat).value)
 	return nil
@@ -182,7 +212,7 @@ func (d *Decoder) unmarshalReal(pval *plistValue, v reflect.Value) error {
 
 func (d *Decoder) unmarshalBoolean(pval *plistValue, v reflect.Value) error {
 	if v.Kind() != reflect.Bool {
-		return UnmarshalTypeError{fmt.Sprintf("%v", pval.value), v.Type()}
+		return d.handleUnsupportedType(pval, v)
 	}
 	v.SetBool(pval.value.(bool))
 	return nil
@@ -217,14 +247,14 @@ func (d *Decoder) unmarshalDictionary(pval *plistValue, v reflect.Value) error {
 			v.SetMapIndex(keyv, mapElem)
 		}
 	default:
-		return UnmarshalTypeError{"dict", v.Type()}
+		return d.handleUnsupportedType(pval, v)
 	}
 	return nil
 }
 
 func (d *Decoder) unmarshalString(pval *plistValue, v reflect.Value) error {
 	if v.Kind() != reflect.String {
-		return UnmarshalTypeError{fmt.Sprintf("%s", pval.value.(string)), v.Type()}
+		return d.handleUnsupportedType(pval, v)
 	}
 	v.SetString(pval.value.(string))
 	return nil
@@ -257,7 +287,7 @@ func (d *Decoder) unmarshalArray(pval *plistValue, v reflect.Value) error {
 			n++
 		}
 	default:
-		return UnmarshalTypeError{"array", v.Type()}
+		return d.handleUnsupportedType(pval, v)
 	}
 	return nil
 }
@@ -275,8 +305,7 @@ func (d *Decoder) unmarshalInteger(pval *plistValue, v reflect.Value) error {
 		}
 		v.SetUint(pval.value.(signedInt).value)
 	default:
-		return UnmarshalTypeError{
-			fmt.Sprintf("%v", pval.value.(signedInt).value), v.Type()}
+		return d.handleUnsupportedType(pval, v)
 	}
 	return nil
 }

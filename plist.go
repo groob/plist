@@ -1,6 +1,9 @@
 package plist
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 type plistKind uint
 
@@ -38,9 +41,23 @@ type signedInt struct {
 	signed bool
 }
 
+func (sf signedInt) String() string {
+	return fmt.Sprintf("%v", sf.value)
+}
+
 type sizedFloat struct {
 	value float64
 	bits  int
+}
+
+func (sf sizedFloat) String() string {
+	return fmt.Sprintf("%v", sf.value)
+}
+
+type array []*plistValue
+
+func (a array) String() string {
+	return "array"
 }
 
 type dictionary struct {
@@ -73,4 +90,8 @@ func (d *dictionary) populateArrays() {
 		i++
 	}
 	sort.Sort(d)
+}
+
+func (d *dictionary) String() string {
+	return "dict"
 }
