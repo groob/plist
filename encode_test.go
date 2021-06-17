@@ -325,3 +325,25 @@ func TestSelfClosing(t *testing.T) {
 	}
 
 }
+
+func TestEncodeTagSkip(t *testing.T) {
+	// Test struct
+	testStruct := struct {
+		NoTag   string
+		Tag     string `plist:"OtherTag"`
+		SkipTag string `plist:"-"`
+	}{
+		NoTag:   "NoTag",
+		Tag:     "Tag",
+		SkipTag: "SkipTag",
+	}
+
+	have, err := Marshal(&testStruct)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bytes.Contains([]byte(have), []byte(testStruct.SkipTag)) {
+		t.Error("field encoded when it was tagged as -")
+	}
+}
