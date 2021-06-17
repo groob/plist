@@ -494,3 +494,22 @@ func TestSmallInput(t *testing.T) {
 	}
 
 }
+
+func TestDecodeTagSkip(t *testing.T) {
+	const input = `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>NoTag</key><string>NoTag</string><key>OtherTag</key><string>Tag</string><key>SkipTag</key><string>SkipTag</string></dict></plist>`
+	// Test struct
+	testStruct := struct {
+		NoTag   string
+		Tag     string `plist:"OtherTag"`
+		SkipTag string `plist:"-"`
+	}{}
+
+	if err := Unmarshal([]byte(input), &testStruct); err != nil {
+		t.Fatal(err)
+	}
+
+	if testStruct.SkipTag != "" {
+		t.Error("field decoded when it was tagged as -")
+	}
+}
