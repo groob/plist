@@ -117,6 +117,7 @@ var indentRefOmit = `<?xml version="1.0" encoding="UTF-8"?>
 
 type testStruct struct {
 	UnusedString string `plist:"unused-string"`
+	UnusedByte   []byte `plist:"unused-byte,omitempty"`
 }
 
 var encodeTests = []struct {
@@ -208,7 +209,7 @@ func TestIndent(t *testing.T) {
 		Size:                  4 * 1048576 * 1024 * 1024,
 		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
 		BackingStoreVersion:   1,
-		Unused:                testStruct{"unused"},
+		Unused:                testStruct{UnusedString: "unused"},
 	}
 	b, err := MarshalIndent(sparseBundleHeader, "   ")
 	if err != nil {
@@ -235,7 +236,7 @@ func TestOmitNotEmpty(t *testing.T) {
 		Size:                  4 * 1048576 * 1024 * 1024,
 		DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
 		BackingStoreVersion:   1,
-		Unused:                testStruct{"unused"},
+		Unused:                testStruct{UnusedString: "unused"},
 	}
 	b, err := MarshalIndent(sparseBundleHeader, "   ")
 	if err != nil {
