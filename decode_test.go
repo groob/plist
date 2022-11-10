@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -511,5 +512,54 @@ func TestDecodeTagSkip(t *testing.T) {
 
 	if testStruct.SkipTag != "" {
 		t.Error("field decoded when it was tagged as -")
+	}
+}
+
+// test parity with plutil -lint on macOS
+var xmlParityTestFailures = map[string]struct{}{
+	"empty-plist.plist":          {},
+	"invalid-before-plist.plist": {},
+	"invalid-data.plist":         {},
+	"invalid-middle.plist":       {},
+	"invalid-start.plist":        {},
+	"no-dict-end.plist":          {},
+	"no-plist-end.plist":         {},
+	"unescaped-plist.plist":      {},
+	"unescaped-xml.plist":        {},
+}
+
+func TestXMLPlutilParity(t *testing.T) {
+	type data struct {
+		Key string `plist:"key"`
+	}
+	tests, err := ioutil.ReadDir("testdata/xml/")
+	if err != nil {
+		t.Fatalf("could not open testdata/xml: %v", err)
+	}
+
+	plutil, _ := exec.LookPath("plutil")
+
+	for _, test := range tests {
+		testPath := filepath.Join("testdata/xml/", test.Name())
+		buf, err := ioutil.ReadFile(testPath)
+		if err != nil {
+			t.Errorf("could not read test %s: %v", test.Name(), err)
+			continue
+		}
+		v := new(data)
+		err = Unmarshal(buf, v)
+
+		_, check := xmlParityTestFailures[test.Name()]
+		if plutil != "" {
+			check = exec.Command(plutil, "-lint", testPath).Run() != nil
+		}
+
+		if check && err == nil {
+			t.Errorf("expected error for test %s but got: nil", test.Name())
+		} else if !check && err != nil {
+			t.Errorf("expected no error for test %s but got: %v", test.Name(), err)
+		} else if !check && v.Key != "val" {
+			t.Errorf("expected key=val for test %s but got: key=%s", test.Name(), v.Key)
+		}
 	}
 }
