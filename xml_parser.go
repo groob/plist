@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"errors"
@@ -22,19 +23,28 @@ func newXMLParser(r io.Reader) *xmlParser {
 }
 
 func (p *xmlParser) parseDocument(start *xml.StartElement) (*plistValue, error) {
-	if start == nil {
-		for {
-			tok, err := p.Token()
-			if err != nil {
-				return nil, err
+	if start != nil {
+		return p.parseXMLElement(start)
+	}
+
+	for {
+		tok, err := p.Token()
+		if err != nil {
+			return nil, err
+		}
+		switch el := tok.(type) {
+		case xml.StartElement:
+			return p.parseXMLElement(&el)
+		case xml.ProcInst, xml.Directive:
+			continue
+		case xml.CharData:
+			if len(bytes.TrimSpace(el)) != 0 {
+				return nil, errors.New("plist: unexpected non-empty xml.CharData")
 			}
-			if t, ok := tok.(xml.StartElement); ok {
-				start = &t
-				break
-			}
+		default:
+			return nil, fmt.Errorf("unexpected element: %T", el)
 		}
 	}
-	return p.parseXMLElement(start)
 }
 
 func (p *xmlParser) parseXMLElement(element *xml.StartElement) (*plistValue, error) {
@@ -63,19 +73,32 @@ func (p *xmlParser) parseXMLElement(element *xml.StartElement) (*plistValue, err
 }
 
 func (p *xmlParser) parsePlist(element *xml.StartElement) (*plistValue, error) {
+	var val *plistValue
 	for {
 		token, err := p.Token()
 		if err != nil {
 			return nil, err
 		}
-		if el, ok := token.(xml.EndElement); ok && el.Name.Local == "plist" {
-			break
-		}
-		if el, ok := token.(xml.StartElement); ok {
-			return p.parseXMLElement(&el)
+		switch el := token.(type) {
+		case xml.EndElement:
+			if val == nil {
+				return nil, errors.New("plist: empty plist tag")
+			}
+			return val, nil
+		case xml.StartElement:
+			v, err := p.parseXMLElement(&el)
+			if err != nil {
+				return v, err
+			}
+			val = v
+		case xml.CharData:
+			if len(bytes.TrimSpace(el)) != 0 {
+				return nil, errors.New("plist: unexpected non-empty xml.CharData")
+			}
+		default:
+			return nil, fmt.Errorf("unexpected element: %T", el)
 		}
 	}
-	return nil, errors.New("plist: Invalid plist")
 }
 
 func (p *xmlParser) parseDict(element *xml.StartElement) (*plistValue, error) {
@@ -86,10 +109,10 @@ func (p *xmlParser) parseDict(element *xml.StartElement) (*plistValue, error) {
 		if err != nil {
 			return nil, err
 		}
-		if el, ok := token.(xml.EndElement); ok && el.Name.Local == "dict" {
-			break
-		}
-		if el, ok := token.(xml.StartElement); ok {
+		switch el := token.(type) {
+		case xml.EndElement:
+			return &plistValue{Dictionary, &dictionary{m: subvalues}}, nil
+		case xml.StartElement:
 			if el.Name.Local == "key" {
 				var k string
 				if err := p.DecodeElement(&k, &el); err != nil {
@@ -106,9 +129,14 @@ func (p *xmlParser) parseDict(element *xml.StartElement) (*plistValue, error) {
 				return nil, err
 			}
 			key = nil
+		case xml.CharData:
+			if len(bytes.TrimSpace(el)) != 0 {
+				return nil, errors.New("plist: unexpected non-empty xml.CharData")
+			}
+		default:
+			return nil, fmt.Errorf("unexpected element: %T", el)
 		}
 	}
-	return &plistValue{Dictionary, &dictionary{m: subvalues}}, nil
 }
 
 func (p *xmlParser) parseString(element *xml.StartElement) (*plistValue, error) {
@@ -134,18 +162,23 @@ func (p *xmlParser) parseArray(element *xml.StartElement) (*plistValue, error) {
 		if err != nil {
 			return nil, err
 		}
-		if el, ok := token.(xml.EndElement); ok && el.Name.Local == "array" {
-			break
-		}
-		if el, ok := token.(xml.StartElement); ok {
+		switch el := token.(type) {
+		case xml.EndElement:
+			return &plistValue{Array, subvalues}, nil
+		case xml.StartElement:
 			subv, err := p.parseXMLElement(&el)
 			if err != nil {
 				return nil, err
 			}
 			subvalues = append(subvalues, subv)
+		case xml.CharData:
+			if len(bytes.TrimSpace(el)) != 0 {
+				return nil, errors.New("plist: unexpected non-empty xml.CharData")
+			}
+		default:
+			return nil, fmt.Errorf("unexpected element: %T", el)
 		}
 	}
-	return &plistValue{Array, subvalues}, nil
 }
 
 func (p *xmlParser) parseReal(element *xml.StartElement) (*plistValue, error) {
